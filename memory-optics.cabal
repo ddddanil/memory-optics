@@ -32,6 +32,7 @@ custom-setup
 library
   exposed-modules:
       Control.Lens.Monadic
+      Control.Monad.Distributive
       Control.Monad.RightModule
       Data.Memory
       Data.Memory.Scalars
