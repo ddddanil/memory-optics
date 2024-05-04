@@ -1,3 +1,11 @@
+{-# LANGUAGE IncoherentInstances #-}
+-- |
+-- Description: Short description
+-- Copyright:
+--   (c) Jules Hedges, 2023
+--   Danil Doroshin, 2024
+--
+-- From https://julesh.com/2023/06/07/monadic-lenses-are-the-optic-for-right-monad-modules-i/
 module Control.Monad.RightModule
   ( RightModule(act) )
 where
