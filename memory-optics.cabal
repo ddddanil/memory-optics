@@ -14,7 +14,7 @@ maintainer:     example@example.com
 copyright:      2024 Author name here
 license:        BSD-3-Clause
 license-file:   LICENSE
-build-type:     Simple
+build-type:     Custom
 extra-source-files:
     README.md
     CHANGELOG.md
@@ -23,8 +23,16 @@ source-repository head
   type: git
   location: https://github.com/githubuser/memory-optics
 
+custom-setup
+  setup-depends:
+      Cabal
+    , Cabal-syntax
+    , base
+
 library
   exposed-modules:
+      Data.Memory
+      Data.Memory.Scalars
       Lib
   other-modules:
       Paths_memory_optics
@@ -32,10 +40,25 @@ library
       Paths_memory_optics
   hs-source-dirs:
       src
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  default-extensions:
+      TemplateHaskell
+      QuasiQuotes
+      LambdaCase
+      BlockArguments
+      GADTs
+      DataKinds
+      TypeFamilies
+      GHCForeignImportPrim
+      UnliftedFFITypes
+      UnboxedTuples
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -fplugin=Polysemy.Plugin
   build-depends:
       base >=4.7 && <5
-  default-language: Haskell2010
+    , lens
+    , polysemy
+    , polysemy-plugin
+    , type-level-numbers
+  default-language: GHC2021
 
 executable memory-optics-exe
   main-is: Main.hs
@@ -45,11 +68,26 @@ executable memory-optics-exe
       Paths_memory_optics
   hs-source-dirs:
       app
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  default-extensions:
+      TemplateHaskell
+      QuasiQuotes
+      LambdaCase
+      BlockArguments
+      GADTs
+      DataKinds
+      TypeFamilies
+      GHCForeignImportPrim
+      UnliftedFFITypes
+      UnboxedTuples
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -fplugin=Polysemy.Plugin -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , lens
     , memory-optics
-  default-language: Haskell2010
+    , polysemy
+    , polysemy-plugin
+    , type-level-numbers
+  default-language: GHC2021
 
 test-suite memory-optics-test
   type: exitcode-stdio-1.0
@@ -60,8 +98,23 @@ test-suite memory-optics-test
       Paths_memory_optics
   hs-source-dirs:
       test
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  default-extensions:
+      TemplateHaskell
+      QuasiQuotes
+      LambdaCase
+      BlockArguments
+      GADTs
+      DataKinds
+      TypeFamilies
+      GHCForeignImportPrim
+      UnliftedFFITypes
+      UnboxedTuples
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -fplugin=Polysemy.Plugin -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , lens
     , memory-optics
-  default-language: Haskell2010
+    , polysemy
+    , polysemy-plugin
+    , type-level-numbers
+  default-language: GHC2021

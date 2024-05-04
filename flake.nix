@@ -15,7 +15,7 @@
 
         pkgs = import nixpkgs { inherit config overlays system; };
         hPkgs =
-          pkgs.haskell.packages."ghc964"; # need to match Stackage LTS version
+          pkgs.haskell.packages."ghc965"; # need to match Stackage LTS version
                                           # from stack.yaml snapshot
 
         # Wrap Stack to work with our Nix integration. We don't want to modify
@@ -45,7 +45,7 @@
           hPkgs.haskell-language-server # LSP server for editor
           hPkgs.implicit-hie # auto generate LSP hie.yaml file from cabal
           hPkgs.retrie # Haskell refactoring tool
-          # hPkgs.cabal-install
+          hPkgs.cabal-install
           stack-wrapped
           pkgs.zlib # External C library needed by some Haskell packages
         ];
