@@ -8,13 +8,19 @@ module Data.Memory
 )
 where
 
-import           Control.Lens.Getter (Getter, to)
-import           Data.Kind           (Type)
-import qualified Foreign.Ptr         as GHC
-import           Foreign.Storable    (Storable (peek, poke))
-import           Polysemy            (Embed, InterpreterFor, Member, interpret,
-                                      makeSem)
-import           Polysemy.Embed      (embed)
+import           Control.Lens.Getter  (Getter, to)
+import           Control.Lens.Monadic (ExistentialMonadicOptic (ExistentialMonadicOptic),
+                                       MonadicOptic, monadicOptic)
+import           Control.Monad        (Monad (return, (>>)))
+import           Data.Function        (($))
+import           Data.Kind            (Type)
+import           Foreign              (Int)
+import qualified Foreign.Ptr          as GHC
+import           Foreign.Storable     (Storable (peek, poke))
+import           GHC.IO               (IO)
+import           Polysemy             (Embed, InterpreterFor, Member, Sem,
+                                       interpret, makeSem)
+import           Polysemy.Embed       (embed)
 
 class Pointer p where
   data Offset p b :: Type

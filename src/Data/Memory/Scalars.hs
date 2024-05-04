@@ -1,5 +1,6 @@
 module Data.Memory.Scalars where
 
+import           GHC.Float            (Double, Float)
 import           GHC.Int              (Int16, Int32, Int64, Int8)
 import           GHC.Word             (Word16, Word32, Word64, Word8)
 import           TypeLevel.Number.Nat (Nat, natT)

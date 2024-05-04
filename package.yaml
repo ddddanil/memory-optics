@@ -22,6 +22,7 @@ description:         Please see the README on GitHub at <https://github.com/gith
 language: GHC2021
 
 default-extensions:
+- NoImplicitPrelude
 - TemplateHaskell
 - QuasiQuotes
 - LambdaCase
@@ -60,17 +61,6 @@ custom-setup:
 
 library:
   source-dirs: src
-
-executables:
-  memory-optics-exe:
-    main:                Main.hs
-    source-dirs:         app
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - memory-optics
 
 tests:
   memory-optics-test:

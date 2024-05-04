@@ -10,8 +10,9 @@ module Control.Monad.RightModule
   ( RightModule(act) )
 where
 
-import           Control.Monad
-import           Data.Functor.Const
+import           Control.Category   ((.))
+import           Control.Monad      (Monad, join)
+import           Data.Functor.Const (Const (Const, getConst))
 
 class RightModule m f where
     act :: f (m a) -> f a

@@ -36,7 +36,6 @@ library
       Control.Monad.RightModule
       Data.Memory
       Data.Memory.Scalars
-      Lib
   other-modules:
       Paths_memory_optics
   autogen-modules:
@@ -44,6 +43,7 @@ library
   hs-source-dirs:
       src
   default-extensions:
+      NoImplicitPrelude
       TemplateHaskell
       QuasiQuotes
       LambdaCase
@@ -63,35 +63,6 @@ library
     , type-level-numbers
   default-language: GHC2021
 
-executable memory-optics-exe
-  main-is: Main.hs
-  other-modules:
-      Paths_memory_optics
-  autogen-modules:
-      Paths_memory_optics
-  hs-source-dirs:
-      app
-  default-extensions:
-      TemplateHaskell
-      QuasiQuotes
-      LambdaCase
-      BlockArguments
-      GADTs
-      DataKinds
-      TypeFamilies
-      GHCForeignImportPrim
-      UnliftedFFITypes
-      UnboxedTuples
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -fplugin=Polysemy.Plugin -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      base >=4.7 && <5
-    , lens
-    , memory-optics
-    , polysemy
-    , polysemy-plugin
-    , type-level-numbers
-  default-language: GHC2021
-
 test-suite memory-optics-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
@@ -102,6 +73,7 @@ test-suite memory-optics-test
   hs-source-dirs:
       test
   default-extensions:
+      NoImplicitPrelude
       TemplateHaskell
       QuasiQuotes
       LambdaCase
