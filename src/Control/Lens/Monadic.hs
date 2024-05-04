@@ -10,12 +10,16 @@ module Control.Lens.Monadic
   , monadicGet
   , monadicPut
   , monadicLens
+  , ExistentialMonadicOptic
+  , MonadicOptic
+  , monadicOptic
   )
 where
 
-import           Control.Lens              (LensLike)
-import           Control.Monad.RightModule (RightModule (act))
-import           Data.Functor.Const        (Const (Const, getConst))
+import           Control.Lens               (LensLike)
+import           Control.Monad.Distributive (Distributive (distribute))
+import           Control.Monad.RightModule  (RightModule (act))
+import           Data.Functor.Const         (Const (Const, getConst))
 
 type MonadicLens m s t a b = forall f. (Functor f, RightModule m f) => LensLike f s t a b
 
@@ -27,3 +31,16 @@ monadicPut l s b = l (const (return b)) s
 
 monadicLens :: (s -> a) -> (s -> b -> m t) -> MonadicLens m s t a b
 monadicLens g p k s = act (fmap (p s) (k (g s)))
+
+data ExistentialMonadicOptic m s t a b where
+  ExistentialMonadicOptic :: (s -> m (a, z)) -> (z -> b -> m t) -> ExistentialMonadicOptic m s t a b
+
+type MonadicOptic m s t a b = forall f.
+    (Functor f, RightModule m f, Distributive m f)
+    => LensLike f s t a b
+
+monadicOptic :: (Monad m) => ExistentialMonadicOptic m s t a b -> MonadicOptic m s t a b
+monadicOptic (ExistentialMonadicOptic g p) k s
+  = act . fmap (>>= uncurry p) . distribute $ do
+    (a, z) <- g s
+    pure (fmap (z, ) (k a))
