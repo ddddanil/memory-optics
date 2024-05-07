@@ -1,6 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 module Data.Memory
-  ( Pointer(Offset)
+  ( Pointer(Offset, compareOffset)
   , offset
   , NativeType
   , readNative
@@ -18,6 +18,7 @@ import           Control.Lens.Monadic (ExistentialMonadicOptic (ExistentialMonad
 import           Control.Monad        (Monad (return, (>>)))
 import           Data.Function        (($))
 import           Data.Kind            (Type)
+import           Data.Ord             (Ordering, compare)
 import           Foreign              (Int)
 import qualified Foreign.Ptr          as GHC
 import           Foreign.Storable     (Storable (peek, poke))
@@ -27,16 +28,17 @@ import           Polysemy             (Embed, InterpreterFor, Member, Sem,
 import           Polysemy.Embed       (runEmbedded)
 
 class Pointer p where
-  data Offset p b :: Type
-  -- | Unsafe. Get a pointer to
-  addOffset :: p a -> Offset p b -> p b
+  data Offset p a b :: Type
+  -- | Unsafe
+  addOffset :: p a -> Offset p a b -> p b
   -- | Unsafe
   unsafeCastPointer :: p a -> p b
+  compareOffset :: Offset p a b -> Offset p a c -> Ordering
 
-offset :: (Pointer p) => Offset p b -> Getter (p a) (p b)
-offset o = let
-  getter p = p `addOffset` o
-  in to getter
+type OffsetOptic p a b = Getter (p a) (p b)
+
+offset :: (Pointer p) => Offset p a b -> OffsetOptic p a b
+offset o = to $ \p -> p `addOffset` o
 
 class (Pointer p) => NativeType p a where
   data MemoryMonad p a :: Type
@@ -75,9 +77,10 @@ runMemoryAsNative = interpret $ \case
   WriteMem ptr d -> embed $ writeMemM ptr d
 
 instance Pointer GHC.Ptr where
-  data Offset GHC.Ptr b = GHCPtrOffset Int
+  data Offset GHC.Ptr a b = GHCPtrOffset Int
   addOffset p (GHCPtrOffset o) = p `GHC.plusPtr` o
   unsafeCastPointer = GHC.castPtr
+  compareOffset (GHCPtrOffset a) (GHCPtrOffset b) = a `compare` b
 
 instance Storable a => NativeType GHC.Ptr a where
   data MemoryMonad GHC.Ptr a = MemoryMonadIO (IO a)
