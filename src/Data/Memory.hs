@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 module Data.Memory
   ( Pointer(Offset, compareOffset)
   , offset
@@ -45,13 +44,13 @@ class (Pointer p) => NativeType p a where
   readMemM :: p a -> MemoryMonad p a
   writeMemM :: p a -> a -> MemoryMonad p a
 
-readNative :: (NativeType p a, NativeType p b, Monad (MemoryMonad p)) => MonadicOptic (MemoryMonad p) (p a) (p b) a b
+readNative :: forall p a b. (NativeType p a, NativeType p b, Monad (MemoryMonad p)) => MonadicOptic (MemoryMonad p) (p a) (p b) a b
 readNative = let
-  read_ :: (NativeType p a, Monad (MemoryMonad p)) => p a -> (MemoryMonad p) (a, p b)
+  read_ :: p a -> (MemoryMonad p) (a, p b)
   read_ ptr = do
     val <- readMemM ptr
     return (val, unsafeCastPointer ptr)
-  write_ :: (NativeType p b, Monad (MemoryMonad p)) => p b -> b -> (MemoryMonad p) (p b)
+  write_ :: p b -> b -> (MemoryMonad p) (p b)
   write_ ptr d = writeMemM ptr d >> return ptr
   in monadicOptic (ExistentialMonadicOptic read_ write_)
 
@@ -69,7 +68,7 @@ read = let
     return (val, unsafeCastPointer ptr)
   write_ :: p b -> b -> Sem r (p b)
   write_ ptr d = writeMem ptr d >> return ptr
-  in monadicOptic (ExistentialMonadicOptic @_ @(Sem r) read_ write_)
+  in monadicOptic (ExistentialMonadicOptic @(Sem r) read_ write_)
 
 runMemoryAsNative :: (Member (Embed (MemoryMonad p)) r) => InterpreterFor (Memory p) r
 runMemoryAsNative = interpret $ \case

@@ -13,6 +13,7 @@ module Control.Lens.Monadic
   , ExistentialMonadicOptic(ExistentialMonadicOptic)
   , MonadicOptic
   , monadicOptic
+  , transformM
   )
 where
 
@@ -25,6 +26,7 @@ import           Data.Function              (const, ($))
 import           Data.Functor               (Functor (fmap))
 import           Data.Functor.Const         (Const (Const, getConst))
 import           Data.Tuple                 (uncurry)
+import           GHC.Base                   (undefined)
 
 type MonadicLens m s t a b = forall f. (Functor f, RightModule m f) => LensLike f s t a b
 
@@ -38,14 +40,15 @@ monadicLens :: (s -> a) -> (s -> b -> m t) -> MonadicLens m s t a b
 monadicLens g p k s = act (fmap (p s) (k (g s)))
 
 data ExistentialMonadicOptic m s t a b where
-  ExistentialMonadicOptic :: (s -> m (a, z)) -> (z -> b -> m t) -> ExistentialMonadicOptic m s t a b
+  ExistentialMonadicOptic :: forall m s t a b z. (s -> m (a, z)) -> (z -> b -> m t) -> ExistentialMonadicOptic m s t a b
 
-type MonadicOptic m s t a b = forall f.
-    (Functor f, RightModule m f, Distributive m f)
-    => LensLike f s t a b
+type MonadicOptic m s t a b = LensLike m s t a b
 
 monadicOptic :: (Monad m) => ExistentialMonadicOptic m s t a b -> MonadicOptic m s t a b
 monadicOptic (ExistentialMonadicOptic g p) k s
   = act . fmap (>>= uncurry p) . distribute $ do
     (a, z) <- g s
     return (fmap (z, ) (k a))
+
+transformM :: (m1 a -> m2 a) -> (MonadicOptic m1 s t a b -> MonadicOptic m2 s t a b)
+transformM f o = undefined
