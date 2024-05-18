@@ -33,8 +33,11 @@ library
   exposed-modules:
       Control.Lens.Monadic
       Control.Monad.Distributive
+      Control.Monad.Monomial
       Control.Monad.RightModule
       Data.Memory
+      Data.Memory.Allocation
+      Data.Memory.Effect
       Data.Memory.Scalars
   other-modules:
       Paths_memory_optics
@@ -44,6 +47,7 @@ library
       src
   default-extensions:
       NoImplicitPrelude
+      NoFieldSelectors
       TemplateHaskell
       QuasiQuotes
       LambdaCase
@@ -74,6 +78,7 @@ test-suite memory-optics-test
       test
   default-extensions:
       NoImplicitPrelude
+      NoFieldSelectors
       TemplateHaskell
       QuasiQuotes
       LambdaCase

@@ -6,49 +6,57 @@
 --
 -- From https://julesh.com/2023/06/07/monadic-lenses-are-the-optic-for-right-monad-modules-i/
 module Control.Lens.Monadic
-  ( MonadicLens
-  , monadicGet
-  , monadicPut
-  , monadicLens
-  , ExistentialMonadicOptic(ExistentialMonadicOptic)
-  , MonadicOptic
-  , monadicOptic
-  , transformM
+  ( ExistentialMonadicLens(ExistentialMonadicLens)
+  , MonadicLens, MonadicLens'
+  , monadicLens, unMonadicLens
+  , getM, putM
   )
 where
 
-import           Control.Category           ((.))
 import           Control.Lens               (LensLike)
 import           Control.Monad              (Monad (return, (>>=)))
 import           Control.Monad.Distributive (Distributive (distribute))
+import           Control.Monad.Monomial     (Monomial (Monomial), runMonomial)
 import           Control.Monad.RightModule  (RightModule (act))
-import           Data.Function              (const, ($))
+import           Data.Function              (($), (.))
 import           Data.Functor               (Functor (fmap))
-import           Data.Functor.Const         (Const (Const, getConst))
 import           Data.Tuple                 (uncurry)
-import           GHC.Base                   (undefined)
 
-type MonadicLens m s t a b = forall f. (Functor f, RightModule m f) => LensLike f s t a b
+data ExistentialMonadicLens m s t a b where
+  ExistentialMonadicLens :: forall m s t a b z. (s -> m (a, z)) -> (z -> b -> m t) -> ExistentialMonadicLens m s t a b
 
-monadicGet :: MonadicLens m s t a b -> s -> a
-monadicGet l s = getConst (l Const s)
+type MonadicLens m s t a b = forall f.
+    (Functor f, RightModule m f, Distributive m f)
+    => LensLike f s t a b
 
-monadicPut :: (Monad m) => MonadicLens m s t a b -> s -> b -> m t
-monadicPut l s b = l (const (return b)) s
+type MonadicLens' m s a = MonadicLens m s s a a
 
-monadicLens :: (s -> a) -> (s -> b -> m t) -> MonadicLens m s t a b
-monadicLens g p k s = act (fmap (p s) (k (g s)))
-
-data ExistentialMonadicOptic m s t a b where
-  ExistentialMonadicOptic :: forall m s t a b z. (s -> m (a, z)) -> (z -> b -> m t) -> ExistentialMonadicOptic m s t a b
-
-type MonadicOptic m s t a b = LensLike m s t a b
-
-monadicOptic :: (Monad m) => ExistentialMonadicOptic m s t a b -> MonadicOptic m s t a b
-monadicOptic (ExistentialMonadicOptic g p) k s
+monadicLens :: (Monad m) => ExistentialMonadicLens m s t a b -> MonadicLens m s t a b
+monadicLens (ExistentialMonadicLens g p) k s
   = act . fmap (>>= uncurry p) . distribute $ do
     (a, z) <- g s
     return (fmap (z, ) (k a))
 
-transformM :: (m1 a -> m2 a) -> (MonadicOptic m1 s t a b -> MonadicOptic m2 s t a b)
-transformM f o = undefined
+runMonadicLens :: (Monad m) => MonadicLens m s t a b -> s -> m (a, b -> m t)
+runMonadicLens l = runMonomial . l (\a -> Monomial (return (a, return)))
+
+unMonadicLens :: (Monad m) => MonadicLens m s t a b -> ExistentialMonadicLens m s t a b
+unMonadicLens l = ExistentialMonadicLens (runMonadicLens l) ($)
+
+
+getM :: (Monad m) => MonadicLens m s t a b -> s -> m a
+getM l s = let
+  g = runMonadicLens l
+  in do
+  (a, _) <- g s
+  return a
+
+putM :: (Monad m) => MonadicLens m s t a b -> b -> s -> m t
+putM l b s = let
+  g = runMonadicLens l
+  in do
+  (_, z) <- g s
+  z b
+
+-- transformM :: (m1 a -> m2 a) -> (MonadicOptic m1 s t a b -> MonadicOptic m2 s t a b)
+-- transformM f o = undefined

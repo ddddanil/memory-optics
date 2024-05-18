@@ -1,90 +1,84 @@
 module Data.Memory
-  ( Pointer(Offset, compareOffset)
+  ( Pointer(compareOffset)
+  , Offset(..)
   , offset
-  , NativeType
-  , readNative
-  , Memory(ReadMem, WriteMem)
-  , readMem, writeMem
-  , read
-  , runMemoryAsNative
-  , runMemoryMonadIO
+  , NativeType(MemoryMonad, readMemM, writeMemM)
+  , OffsetGetter, AbiLens
+  , readOffset, readOffset', read, read'
   )
 where
 
 import           Control.Lens.Getter  (Getter, to)
-import           Control.Lens.Monadic (ExistentialMonadicOptic (ExistentialMonadicOptic),
-                                       MonadicOptic, monadicOptic)
+import           Control.Lens.Monadic (ExistentialMonadicLens (ExistentialMonadicLens),
+                                       MonadicLens, MonadicLens', monadicLens)
 import           Control.Monad        (Monad (return, (>>)))
-import           Data.Function        (($))
+import           Data.Function        (($), (.))
 import           Data.Kind            (Type)
 import           Data.Ord             (Ordering, compare)
-import           Foreign              (Int)
+import           Data.Proxy           (Proxy)
+import           Foreign              (Int, Storable)
 import qualified Foreign.Ptr          as GHC
 import           Foreign.Storable     (Storable (peek, poke))
+import           GHC.Base             (undefined)
 import           GHC.IO               (IO)
-import           Polysemy             (Embed, InterpreterFor, Member, Sem,
-                                       embed, interpret, makeSem)
-import           Polysemy.Embed       (runEmbedded)
+import           GHC.Num              (Num)
 
 class Pointer p where
-  data Offset p a b :: Type
-  -- | Unsafe
+  data Offset p a b
+  offsetSelf :: Offset p a a
   addOffset :: p a -> Offset p a b -> p b
+  -- mulOffset :: (Num n) => Proxy @(p a) -> n -> Offset p a b -> Offset p a b
+  compareOffset ::  Offset p a b -> Offset p a c -> Ordering
   -- | Unsafe
   unsafeCastPointer :: p a -> p b
-  compareOffset :: Offset p a b -> Offset p a c -> Ordering
+  -- | Unsafe
+  unsafeCastOffset ::  Offset p s a -> Offset p t b
 
-type OffsetOptic p a b = Getter (p a) (p b)
+type OffsetGetter p a b = Getter (p a) (p b)
 
-offset :: (Pointer p) => Offset p a b -> OffsetOptic p a b
+offset :: (Pointer p) => Offset p a b -> OffsetGetter p a b
 offset o = to $ \p -> p `addOffset` o
 
 class (Pointer p) => NativeType p a where
-  data MemoryMonad p a :: Type
+  type MemoryMonad p :: Type -> Type
   readMemM :: p a -> MemoryMonad p a
-  writeMemM :: p a -> a -> MemoryMonad p a
+  writeMemM :: p a -> a -> MemoryMonad p ()
 
-readNative :: forall p a b. (NativeType p a, NativeType p b, Monad (MemoryMonad p)) => MonadicOptic (MemoryMonad p) (p a) (p b) a b
-readNative = let
-  read_ :: p a -> (MemoryMonad p) (a, p b)
+  sizeOf :: Proxy (p a) -> Offset p a a
+  alignOf :: Proxy (p a) -> Offset p a a
+  strideOf :: Proxy (p a) -> Offset p a a
+
+readOffset :: forall p s t a b. (NativeType p a, NativeType p b, Monad (MemoryMonad p)) => Offset p s a -> MonadicLens (MemoryMonad p) (p s) (p t) a b
+readOffset o = let
+  read_ :: p s -> (MemoryMonad p) (a, (p t, Offset p t b))
   read_ ptr = do
-    val <- readMemM ptr
-    return (val, unsafeCastPointer ptr)
-  write_ :: p b -> b -> (MemoryMonad p) (p b)
-  write_ ptr d = writeMemM ptr d >> return ptr
-  in monadicOptic (ExistentialMonadicOptic read_ write_)
+    val <- readMemM (ptr `addOffset` o)
+    return (val, (unsafeCastPointer ptr, unsafeCastOffset o))
+  write_ :: (p t, Offset p t b) -> b -> (MemoryMonad p) (p t)
+  write_ (ptr, off) d = writeMemM (ptr `addOffset` off) d >> return ptr
+  in monadicLens (ExistentialMonadicLens read_ write_)
 
-data Memory p m a where
-  ReadMem :: (NativeType p a) => p a -> Memory p m a
-  WriteMem :: (NativeType p a) => p a -> a -> Memory p m a
+readOffset' :: forall p s a. (NativeType p a, Monad (MemoryMonad p)) => Offset p s a -> MonadicLens' (MemoryMonad p) (p s) a
+readOffset' = readOffset
 
-makeSem ''Memory
+read :: forall p a b. (NativeType p a, NativeType p b, Monad (MemoryMonad p)) => MonadicLens (MemoryMonad p) (p a) (p b) a b
+read = readOffset offsetSelf
 
-read :: forall r p a b. (NativeType p a, NativeType p b, Member (Memory p) r) => MonadicOptic (Sem r) (p a) (p b) a b
-read = let
-  read_ :: p a -> Sem r (a, p b)
-  read_ ptr = do
-    val <- readMem ptr
-    return (val, unsafeCastPointer ptr)
-  write_ :: p b -> b -> Sem r (p b)
-  write_ ptr d = writeMem ptr d >> return ptr
-  in monadicOptic (ExistentialMonadicOptic @(Sem r) read_ write_)
+read' :: forall p a. (NativeType p a, Monad (MemoryMonad p)) => MonadicLens' (MemoryMonad p) (p a) a
+read' = readOffset' offsetSelf
 
-runMemoryAsNative :: (Member (Embed (MemoryMonad p)) r) => InterpreterFor (Memory p) r
-runMemoryAsNative = interpret $ \case
-  ReadMem ptr -> embed $ readMemM ptr
-  WriteMem ptr d -> embed $ writeMemM ptr d
+type AbiLens p a = MonadicLens (MemoryMonad p) (p a) (p a) a a
 
 instance Pointer GHC.Ptr where
   data Offset GHC.Ptr a b = GHCPtrOffset Int
+  offsetSelf = GHCPtrOffset 0
   addOffset p (GHCPtrOffset o) = p `GHC.plusPtr` o
+  unsafeCastOffset (GHCPtrOffset o) = GHCPtrOffset o
   unsafeCastPointer = GHC.castPtr
   compareOffset (GHCPtrOffset a) (GHCPtrOffset b) = a `compare` b
 
 instance Storable a => NativeType GHC.Ptr a where
-  data MemoryMonad GHC.Ptr a = MemoryMonadIO (IO a)
-  readMemM ptr = MemoryMonadIO $ peek ptr
-  writeMemM ptr d = MemoryMonadIO $ poke ptr d >> return d
-
-runMemoryMonadIO :: Member (Embed IO) r => InterpreterFor (Embed (MemoryMonad GHC.Ptr)) r
-runMemoryMonadIO = runEmbedded $ \(MemoryMonadIO m) -> m
+  type MemoryMonad GHC.Ptr = IO
+  readMemM ptr = peek ptr
+  writeMemM ptr d = poke ptr d
+  -- strideIndex i = GHCPtrOffset $ i * sizeOf (undefined @a)
