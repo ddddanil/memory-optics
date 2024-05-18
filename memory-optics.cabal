@@ -50,6 +50,7 @@ library
       NoFieldSelectors
       TemplateHaskell
       QuasiQuotes
+      PatternSynonyms
       LambdaCase
       BlockArguments
       GADTs
@@ -81,6 +82,7 @@ test-suite memory-optics-test
       NoFieldSelectors
       TemplateHaskell
       QuasiQuotes
+      PatternSynonyms
       LambdaCase
       BlockArguments
       GADTs
@@ -92,6 +94,7 @@ test-suite memory-optics-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -fplugin=Polysemy.Plugin -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , hedgehog
     , lens
     , memory-optics
     , polysemy

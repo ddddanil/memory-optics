@@ -26,6 +26,7 @@ default-extensions:
 - NoFieldSelectors
 - TemplateHaskell
 - QuasiQuotes
+- PatternSynonyms
 - LambdaCase
 - BlockArguments
 - GADTs
@@ -73,3 +74,4 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - memory-optics
+    - hedgehog
