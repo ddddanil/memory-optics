@@ -76,4 +76,7 @@ tests:
     dependencies:
     - memory-optics
     - resourcet
+    - tasty
+    - tasty-hedgehog
+    - polysemy-test
     - hedgehog

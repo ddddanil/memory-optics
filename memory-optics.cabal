@@ -73,6 +73,7 @@ test-suite memory-optics-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Spec.Monad.Storable
       Paths_memory_optics
   autogen-modules:
       Paths_memory_optics
@@ -101,6 +102,9 @@ test-suite memory-optics-test
     , mmorph
     , polysemy
     , polysemy-plugin
+    , polysemy-test
     , resourcet
+    , tasty
+    , tasty-hedgehog
     , type-level-numbers
   default-language: GHC2021

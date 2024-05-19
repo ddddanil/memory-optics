@@ -3,7 +3,14 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: polysemy-test-0.3.1.7@sha256:aa081273181b5a943969dd2757a92c973e17c8c4bfcd7cca01132f951f8ab824,4739
+    pantry-tree:
+      sha256: bee0918e2bb3ea2a7c6d7b5aa24d66b5d1003dbc1a46bcb2d5bf713792739e84
+      size: 1091
+  original:
+    hackage: polysemy-test-0.3.1.7@sha256:aa081273181b5a943969dd2757a92c973e17c8c4bfcd7cca01132f951f8ab824,4739
 snapshots:
 - completed:
     sha256: 4be1ca5d31689b524a7f0f17a439bbe9136465213edc498e9a395899a670f2aa
