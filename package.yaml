@@ -1,10 +1,10 @@
 name:                memory-optics
 version:             0.1.0.0
-github:              "githubuser/memory-optics"
+github:              "ddddanil/memory-optics"
 license:             BSD-3-Clause
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2024 Author name here"
+author:              "Danil Doroshin"
+maintainer:          "ddddanil5555@gmail.com"
+copyright:           "2024 Danil Doroshin"
 
 extra-source-files:
 - README.md
@@ -42,6 +42,7 @@ dependencies:
 - polysemy
 - polysemy-plugin
 - type-level-numbers
+- mmorph
 
 ghc-options:
 - -Wall
@@ -74,4 +75,5 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - memory-optics
+    - resourcet
     - hedgehog

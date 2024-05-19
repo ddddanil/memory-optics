@@ -9,7 +9,7 @@ module Control.Lens.Monadic
   ( ExistentialMonadicLens(ExistentialMonadicLens)
   , MonadicLens, MonadicLens'
   , monadicLens, unMonadicLens
-  , getM, putM
+  , getM, putM, modifyM
   )
 where
 
@@ -46,17 +46,25 @@ unMonadicLens l = ExistentialMonadicLens (runMonadicLens l) ($)
 
 getM :: (Monad m) => MonadicLens m s t a b -> s -> m a
 getM l s = let
-  g = runMonadicLens l
+  get_ = runMonadicLens l
   in do
-  (a, _) <- g s
+  (a, _) <- get_ s
   return a
 
 putM :: (Monad m) => MonadicLens m s t a b -> b -> s -> m t
 putM l b s = let
-  g = runMonadicLens l
+  get_ = runMonadicLens l
   in do
-  (_, z) <- g s
-  z b
+  (_, put_) <- get_ s
+  put_ b
+
+modifyM :: (Monad m) => MonadicLens m s t a b -> (a -> m b) -> s -> m t
+modifyM l f s = let
+  get_ = runMonadicLens l
+  in do
+  (a, put_) <- get_ s
+  b <- f a
+  put_ b
 
 -- transformM :: (m1 a -> m2 a) -> (MonadicOptic m1 s t a b -> MonadicOptic m2 s t a b)
 -- transformM f o = undefined

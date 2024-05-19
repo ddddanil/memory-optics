@@ -1,10 +1,10 @@
 module Data.Memory
-  ( Pointer(compareOffset)
+  ( Pointer(compareOffset, addOffset, offsetSelf, unsafeCastPointer, unsafeCastOffset)
   , Offset(..)
   , offset
-  , NativeType(MemoryMonad, readMemM, writeMemM)
+  , NativeType(MemoryMonad, readMemM, writeMemM, sizeOf, alignOf, strideOf)
   , OffsetGetter, AbiLens
-  , readOffset, readOffset', read, read'
+  , derefOffset, derefOffset', deref, deref'
   )
 where
 
@@ -12,16 +12,14 @@ import           Control.Lens.Getter  (Getter, to)
 import           Control.Lens.Monadic (ExistentialMonadicLens (ExistentialMonadicLens),
                                        MonadicLens, MonadicLens', monadicLens)
 import           Control.Monad        (Monad (return, (>>)))
-import           Data.Function        (($), (.))
+import           Data.Function        (($))
 import           Data.Kind            (Type)
 import           Data.Ord             (Ordering, compare)
 import           Data.Proxy           (Proxy)
 import           Foreign              (Int, Storable)
 import qualified Foreign.Ptr          as GHC
 import           Foreign.Storable     (Storable (peek, poke))
-import           GHC.Base             (undefined)
 import           GHC.IO               (IO)
-import           GHC.Num              (Num)
 
 class Pointer p where
   data Offset p a b
@@ -48,8 +46,8 @@ class (Pointer p) => NativeType p a where
   alignOf :: Proxy (p a) -> Offset p a a
   strideOf :: Proxy (p a) -> Offset p a a
 
-readOffset :: forall p s t a b. (NativeType p a, NativeType p b, Monad (MemoryMonad p)) => Offset p s a -> MonadicLens (MemoryMonad p) (p s) (p t) a b
-readOffset o = let
+derefOffset :: forall p s t a b. (NativeType p a, NativeType p b, Monad (MemoryMonad p)) => Offset p s a -> MonadicLens (MemoryMonad p) (p s) (p t) a b
+derefOffset o = let
   read_ :: p s -> (MemoryMonad p) (a, (p t, Offset p t b))
   read_ ptr = do
     val <- readMemM (ptr `addOffset` o)
@@ -58,14 +56,14 @@ readOffset o = let
   write_ (ptr, off) d = writeMemM (ptr `addOffset` off) d >> return ptr
   in monadicLens (ExistentialMonadicLens read_ write_)
 
-readOffset' :: forall p s a. (NativeType p a, Monad (MemoryMonad p)) => Offset p s a -> MonadicLens' (MemoryMonad p) (p s) a
-readOffset' = readOffset
+derefOffset' :: forall p s a. (NativeType p a, Monad (MemoryMonad p)) => Offset p s a -> MonadicLens' (MemoryMonad p) (p s) a
+derefOffset' = derefOffset
 
-read :: forall p a b. (NativeType p a, NativeType p b, Monad (MemoryMonad p)) => MonadicLens (MemoryMonad p) (p a) (p b) a b
-read = readOffset offsetSelf
+deref :: forall p a b. (NativeType p a, NativeType p b, Monad (MemoryMonad p)) => MonadicLens (MemoryMonad p) (p a) (p b) a b
+deref = derefOffset offsetSelf
 
-read' :: forall p a. (NativeType p a, Monad (MemoryMonad p)) => MonadicLens' (MemoryMonad p) (p a) a
-read' = readOffset' offsetSelf
+deref' :: forall p a. (NativeType p a, Monad (MemoryMonad p)) => MonadicLens' (MemoryMonad p) (p a) a
+deref' = derefOffset' offsetSelf
 
 type AbiLens p a = MonadicLens (MemoryMonad p) (p a) (p a) a a
 
@@ -79,6 +77,6 @@ instance Pointer GHC.Ptr where
 
 instance Storable a => NativeType GHC.Ptr a where
   type MemoryMonad GHC.Ptr = IO
-  readMemM ptr = peek ptr
-  writeMemM ptr d = poke ptr d
+  readMemM = peek
+  writeMemM = poke
   -- strideIndex i = GHCPtrOffset $ i * sizeOf (undefined @a)
