@@ -24,6 +24,7 @@ language: GHC2021
 default-extensions:
 - NoImplicitPrelude
 - NoFieldSelectors
+- DefaultSignatures
 - TemplateHaskell
 - QuasiQuotes
 - PatternSynonyms

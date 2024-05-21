@@ -2,8 +2,8 @@ module Data.Memory
   ( Pointer(compareOffset, addOffset, offsetSelf, unsafeCastPointer, unsafeCastOffset)
   , Offset(..)
   , offset
-  , NativeType(MemoryMonad, readMemM, writeMemM, sizeOf, alignOf, strideOf)
-  , OffsetGetter, AbiLens
+  , NativeType(MemoryMonad, readMemM, writeMemM)
+  , OffsetGetter
   , derefOffset, derefOffset', deref, deref'
   )
 where
@@ -15,10 +15,9 @@ import           Control.Monad        (Monad (return, (>>)))
 import           Data.Function        (($))
 import           Data.Kind            (Type)
 import           Data.Ord             (Ordering, compare)
-import           Data.Proxy           (Proxy)
 import           Foreign              (Int, Storable)
 import qualified Foreign.Ptr          as GHC
-import           Foreign.Storable     (Storable (peek, poke))
+import qualified Foreign.Storable     (Storable (peek, poke))
 import           GHC.IO               (IO)
 
 class Pointer p where
@@ -42,10 +41,6 @@ class (Pointer p) => NativeType p a where
   readMemM :: p a -> MemoryMonad p a
   writeMemM :: p a -> a -> MemoryMonad p ()
 
-  sizeOf :: Proxy (p a) -> Offset p a a
-  alignOf :: Proxy (p a) -> Offset p a a
-  strideOf :: Proxy (p a) -> Offset p a a
-
 derefOffset :: forall p s t a b. (NativeType p a, NativeType p b, Monad (MemoryMonad p)) => Offset p s a -> MonadicLens (MemoryMonad p) (p s) (p t) a b
 derefOffset o = let
   read_ :: p s -> (MemoryMonad p) (a, (p t, Offset p t b))
@@ -65,8 +60,6 @@ deref = derefOffset offsetSelf
 deref' :: forall p a. (NativeType p a, Monad (MemoryMonad p)) => MonadicLens' (MemoryMonad p) (p a) a
 deref' = derefOffset' offsetSelf
 
-type AbiLens p a = MonadicLens (MemoryMonad p) (p a) (p a) a a
-
 instance Pointer GHC.Ptr where
   data Offset GHC.Ptr a b = GHCPtrOffset Int
   offsetSelf = GHCPtrOffset 0
@@ -77,6 +70,5 @@ instance Pointer GHC.Ptr where
 
 instance Storable a => NativeType GHC.Ptr a where
   type MemoryMonad GHC.Ptr = IO
-  readMemM = peek
-  writeMemM = poke
-  -- strideIndex i = GHCPtrOffset $ i * sizeOf (undefined @a)
+  readMemM = Foreign.Storable.peek
+  writeMemM = Foreign.Storable.poke

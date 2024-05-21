@@ -36,6 +36,8 @@ library
       Control.Monad.Monomial
       Control.Monad.RightModule
       Data.Memory
+      Data.Memory.Abi
+      Data.Memory.Abi.C
       Data.Memory.Allocation
       Data.Memory.Effect
       Data.Memory.Scalars
@@ -48,6 +50,7 @@ library
   default-extensions:
       NoImplicitPrelude
       NoFieldSelectors
+      DefaultSignatures
       TemplateHaskell
       QuasiQuotes
       PatternSynonyms
@@ -82,6 +85,7 @@ test-suite memory-optics-test
   default-extensions:
       NoImplicitPrelude
       NoFieldSelectors
+      DefaultSignatures
       TemplateHaskell
       QuasiQuotes
       PatternSynonyms
