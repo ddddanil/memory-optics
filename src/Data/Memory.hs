@@ -1,7 +1,8 @@
 module Data.Memory
-  ( Pointer(compareOffset, addOffset, offsetSelf, unsafeCastPointer, unsafeCastOffset)
+  ( Pointer(compareOffset, addOffset, composeOffsets, offsetSelf, unsafeCastPointer, unsafeCastOffset)
   , Offset(..)
   , offset
+  , unsafeCastPtr
   , NativeType(MemoryMonad, readMemM, writeMemM)
   , OffsetGetter
   , derefOffset, derefOffset', deref, deref'
@@ -9,21 +10,24 @@ module Data.Memory
 where
 
 import           Control.Lens.Getter  (Getter, to)
+import           Control.Lens.Iso     (Iso, iso)
 import           Control.Lens.Monadic (ExistentialMonadicLens (ExistentialMonadicLens),
                                        MonadicLens, MonadicLens', monadicLens)
 import           Control.Monad        (Monad (return, (>>)))
 import           Data.Function        (($))
 import           Data.Kind            (Type)
-import           Data.Ord             (Ordering, compare)
+import           Data.Ord             (Ordering, compare, Ord)
 import           Foreign              (Int, Storable)
 import qualified Foreign.Ptr          as GHC
 import qualified Foreign.Storable     (Storable (peek, poke))
 import           GHC.IO               (IO)
+import           GHC.Num              ((+))
 
 class Pointer p where
   data Offset p a b
   offsetSelf :: Offset p a a
   addOffset :: p a -> Offset p a b -> p b
+  composeOffsets :: Offset p a b -> Offset p b c -> Offset p a c
   -- mulOffset :: (Num n) => Proxy @(p a) -> n -> Offset p a b -> Offset p a b
   compareOffset ::  Offset p a b -> Offset p a c -> Ordering
   -- | Unsafe
@@ -35,6 +39,9 @@ type OffsetGetter p a b = Getter (p a) (p b)
 
 offset :: (Pointer p) => Offset p a b -> OffsetGetter p a b
 offset o = to $ \p -> p `addOffset` o
+
+unsafeCastPtr :: (Pointer p) => Iso (p a) (p a) (p b) (p b)
+unsafeCastPtr = iso unsafeCastPointer unsafeCastPointer
 
 class (Pointer p) => NativeType p a where
   type MemoryMonad p :: Type -> Type
@@ -63,10 +70,11 @@ deref' = derefOffset' offsetSelf
 instance Pointer GHC.Ptr where
   data Offset GHC.Ptr a b = GHCPtrOffset Int
   offsetSelf = GHCPtrOffset 0
-  addOffset p (GHCPtrOffset o) = p `GHC.plusPtr` o
+  p `addOffset ` (GHCPtrOffset o) = p `GHC.plusPtr` o
+  (GHCPtrOffset a) `composeOffsets` (GHCPtrOffset b) = GHCPtrOffset $ a + b
+  (GHCPtrOffset a) `compareOffset` (GHCPtrOffset b) = a `compare` b
   unsafeCastOffset (GHCPtrOffset o) = GHCPtrOffset o
   unsafeCastPointer = GHC.castPtr
-  compareOffset (GHCPtrOffset a) (GHCPtrOffset b) = a `compare` b
 
 instance Storable a => NativeType GHC.Ptr a where
   type MemoryMonad GHC.Ptr = IO
