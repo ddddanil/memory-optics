@@ -38,6 +38,7 @@ library
       Data.Memory
       Data.Memory.Abi
       Data.Memory.Abi.C
+      Data.Memory.Abi.Native
       Data.Memory.Allocation
       Data.Memory.Effect
       Data.Memory.Scalars

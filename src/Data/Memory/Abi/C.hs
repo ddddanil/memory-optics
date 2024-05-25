@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 module Data.Memory.Abi.C
   ( CAbi
   , greedyStructLayout
@@ -5,29 +6,51 @@ module Data.Memory.Abi.C
   , cSized
   )
 where
-import           Barbies              (Container (Container, getContainer))
-import           Barbies.Constraints  (Dict, requiringDict)
-import           Data.Function        (($), (.))
-import           Data.Functor         (Functor (fmap))
-import           Data.Functor.Barbie  (ConstraintsB (baddDicts),
-                                       FunctorB (bmap),
-                                       TraversableB (btraverse))
-import           Data.Functor.Const   (Const (Const))
-import           Data.Functor.Product (Product (Pair))
-import           Data.Functor.Utils   (StateL (StateL), runStateL)
-import           Data.Memory          (Offset, Pointer (unsafeOffsetFromBytes))
-import           Data.Memory.Abi      (AllSizedB, Native, OffsetB,
-                                       SizeOf (SizeOf, alignOf, sizeOf),
-                                       SizeOfAbi,
-                                       Sized (AlignOf', SizeOf', sized), SizedB)
-import           Data.Ord             (Ord (max))
-import           Data.Proxy           (Proxy (Proxy))
-import           Data.Traversable     (Traversable, mapAccumL)
-import           Data.Void            (Void)
-import           GHC.Num              (Num ((+)))
-import           GHC.Real             (Integral)
+import           Barbies                (Container (Container, getContainer))
+import           Barbies.Constraints    (Dict, requiringDict)
+import           Data.Function          (($), (.))
+import           Data.Functor           (Functor (fmap))
+import           Data.Functor.Barbie    (ConstraintsB (baddDicts),
+                                         FunctorB (bmap),
+                                         TraversableB (btraverse))
+import           Data.Functor.Const     (Const (Const))
+import           Data.Functor.Product   (Product (Pair))
+import           Data.Functor.Utils     (StateL (StateL), runStateL)
+import           Data.Memory            (Offset,
+                                         Pointer (unsafeOffsetFromBytes))
+import           Data.Memory.Abi        (AllSizedB, OffsetB,
+                                         SizeOf (SizeOf, alignOf, sizeOf),
+                                         SizeOfAbi,
+                                         Sized (AlignOf', SizeOf', sized),
+                                         SizedB)
+import           Data.Memory.Abi.Native (Native)
+import           Data.Ord               (Ord (max))
+import           Data.Proxy             (Proxy (Proxy))
+import           Data.Traversable       (Traversable, mapAccumL)
+import           Data.Void              (Void)
+import           Data.Word              (Word64)
+import           GHC.Num                (Num ((+)))
+import           GHC.Real               (Integral, fromIntegral)
 
 data CAbi
+
+instance
+  ( Pointer p
+  , Sized p Native a
+  , Integral (SizeOf' p Native)
+  , Integral (AlignOf' p Native)
+  )
+  => Sized p CAbi a
+  where
+  type SizeOf' p CAbi = Word64
+  type AlignOf' p CAbi = Word64
+  sized :: Proxy (CAbi, p a) -> SizeOfAbi p CAbi
+  sized _ = let
+    SizeOf
+      { sizeOf
+      , alignOf
+      } = sized (Proxy @(Native, p a))
+    in SizeOf{ sizeOf = fromIntegral sizeOf, alignOf = fromIntegral alignOf }
 
 combineLayouts
   :: forall p s a b c
@@ -80,13 +103,10 @@ mapAccumLB f' s'
 
 greedyStructLayoutB
   :: forall b p
-  . (TraversableB b
+  . ( TraversableB b
     , ConstraintsB b
     , AllSizedB p CAbi b
     , Pointer p
-    , Integral (SizeOf' p CAbi)
-    , Num (AlignOf' p CAbi)
-    , Ord (AlignOf' p CAbi)
     )
   => b (Const Void)
   -> (SizeOfAbi p CAbi, OffsetB p b)

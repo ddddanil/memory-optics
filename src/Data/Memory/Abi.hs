@@ -8,23 +8,17 @@ module Data.Memory.Abi
   , OffsetB
   , AllSizedB
   , SizedB
-  , Native
   )
 where
 
 import           Barbies               (Container)
 import           Control.Lens.Monadic  (MonadicLens)
-import           Data.Function         (($), (.))
 import           Data.Functor.Barbie   (ConstraintsB (AllB))
 import           Data.Functor.Identity (Identity)
-import           Data.Int              (Int)
 import           Data.Memory           (NativeType (MemoryMonad), Offset,
                                         Pointer)
-import           Data.Proxy            (Proxy (Proxy), asProxyTypeOf)
+import           Data.Proxy            (Proxy)
 import           Data.Type.Equality    (type (~))
-import qualified Foreign.Ptr           as GHC
-import qualified Foreign.Storable      (Storable (alignment, sizeOf))
-import           GHC.Err               (undefined)
 import           GHC.Num               (Num ((+), (-)))
 import           GHC.Real              (Integral (mod))
 
@@ -55,14 +49,3 @@ type OffsetB p b = b (Offset p (b Identity))
 type AllSizedB p abi b = AllB (Sized p abi) b
 type SizedB p abi b = Container b (SizeOfAbi p abi)
 
-data Native
-
-instance (Foreign.Storable.Storable a) => Sized GHC.Ptr Native a where
-  type SizeOf' GHC.Ptr Native = Int
-  type AlignOf' GHC.Ptr Native = Int
-  sized :: Proxy (Native, GHC.Ptr a) -> SizeOf Int Int
-  sized _ = let
-    p = undefined `asProxyTypeOf` Proxy @a
-    sizeOf = Foreign.Storable.sizeOf $ p
-    alignOf = Foreign.Storable.alignment $ p
-    in SizeOf{sizeOf, alignOf}
