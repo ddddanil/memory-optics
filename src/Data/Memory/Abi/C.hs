@@ -1,35 +1,40 @@
 module Data.Memory.Abi.C
   ( CAbi
   , greedyStructLayout
+  , greedyStructLayoutB
+  , cSized
   )
 where
-import           Control.Lens.Monadic (ExistentialMonadicLens (ExistentialMonadicLens),
-                                       monadicLens)
-import           Control.Monad        (Monad (return))
+import           Barbies              (Container (Container, getContainer))
+import           Barbies.Constraints  (Dict, requiringDict)
 import           Data.Function        (($), (.))
-import           Data.Memory          (NativeType (MemoryMonad), Offset,
-                                       Pointer (compareOffset, composeOffsets, offsetSelf, unsafeCastOffset, unsafeOffsetFromBytes),
-                                       deref', unsafeCastPtr)
-import           Data.Memory.Abi      (Abi, AbiLens, Native,
+import           Data.Functor         (Functor (fmap))
+import           Data.Functor.Barbie  (ConstraintsB (baddDicts),
+                                       FunctorB (bmap),
+                                       TraversableB (btraverse))
+import           Data.Functor.Const   (Const (Const))
+import           Data.Functor.Product (Product (Pair))
+import           Data.Functor.Utils   (StateL (StateL), runStateL)
+import           Data.Memory          (Offset, Pointer (unsafeOffsetFromBytes))
+import           Data.Memory.Abi      (AllSizedB, Native, OffsetB,
                                        SizeOf (SizeOf, alignOf, sizeOf),
-                                       Sized (sized))
+                                       SizeOfAbi,
+                                       Sized (AlignOf', SizeOf', sized), SizedB)
 import           Data.Ord             (Ord (max))
 import           Data.Proxy           (Proxy (Proxy))
 import           Data.Traversable     (Traversable, mapAccumL)
-import           GHC.Err              (error)
-import           GHC.Generics         (Generic (Rep), K1, U1 (U1), V1, (:*:))
-import           GHC.Generics.Lens    (_K1)
+import           Data.Void            (Void)
 import           GHC.Num              (Num ((+)))
-import           GHC.Real             (Integral, fromIntegral)
+import           GHC.Real             (Integral)
 
 data CAbi
 
 combineLayouts
-  :: forall p s a
+  :: forall p s a b c
   . (Pointer p, Integral s, Ord a)
   => SizeOf s a
   -> SizeOf s a
-  -> (SizeOf s a, Offset p () ())
+  -> (SizeOf s a, Offset p b c)
 combineLayouts
   SizeOf
   { sizeOf = accSize
@@ -60,3 +65,43 @@ greedyStructLayout
 greedyStructLayout
   = mapAccumL combineLayouts emptyLayout
 
+mapAccumLB
+  :: forall b s f g
+  . (TraversableB b)
+  => (forall a. s -> f a -> (s, g a))
+  -> s
+  -> b f
+  -> (s, b g)
+mapAccumLB f' s'
+  = let
+  f :: forall a. f a -> (StateL s) (g a)
+  f t = StateL (`f'` t)
+  in fmap (`runStateL` s') ((btraverse @_ @_ @(StateL s)) f)
+
+greedyStructLayoutB
+  :: forall b p
+  . (TraversableB b
+    , ConstraintsB b
+    , AllSizedB p CAbi b
+    , Pointer p
+    , Integral (SizeOf' p CAbi)
+    , Num (AlignOf' p CAbi)
+    , Ord (AlignOf' p CAbi)
+    )
+  => b (Const Void)
+  -> (SizeOfAbi p CAbi, OffsetB p b)
+greedyStructLayoutB b
+  = let
+  s = getContainer . cSized (Proxy @p) $ b
+  in mapAccumLB (\a (Const c) -> combineLayouts a c) emptyLayout s
+
+cSized
+ :: forall b p
+ . (ConstraintsB b, AllSizedB p CAbi b)
+ => Proxy p
+ -> b (Const Void)
+ -> SizedB p CAbi b
+cSized _ = let
+  ss :: forall a. Dict (Sized p CAbi) a -> SizeOfAbi p CAbi
+  ss = requiringDict (sized (Proxy @(CAbi, p a)))
+  in Container . bmap (fmap Const ss) . bmap (\(Pair d _) -> d) . baddDicts

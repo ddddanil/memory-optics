@@ -44,6 +44,7 @@ dependencies:
 - polysemy
 - polysemy-plugin
 - type-level-numbers
+- barbies
 - mmorph
 
 ghc-options:
@@ -66,6 +67,8 @@ custom-setup:
 
 library:
   source-dirs: src
+  other-modules:
+    - Data.Functor.Utils
 
 tests:
   memory-optics-test:

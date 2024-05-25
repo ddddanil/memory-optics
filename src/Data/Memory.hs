@@ -35,7 +35,7 @@ import           GHC.Real             (Integral, fromIntegral)
 class Pointer p where
   data Offset p a b
   offsetSelf :: Offset p a a
-  unsafeOffsetFromBytes :: (Integral a) => a -> Offset p () ()
+  unsafeOffsetFromBytes :: forall a b c. (Integral a) => a -> Offset p b c
   addOffset :: p a -> Offset p a b -> p b
   composeOffsets :: Offset p a b -> Offset p b c -> Offset p a c
   -- mulOffset :: (Num n) => Proxy @(p a) -> n -> Offset p a b -> Offset p a b
