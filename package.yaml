@@ -36,6 +36,7 @@ default-extensions:
 - GHCForeignImportPrim
 - UnliftedFFITypes
 - UnboxedTuples
+- MagicHash
 
 dependencies:
 - base >= 4.7 && < 5

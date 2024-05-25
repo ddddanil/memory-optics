@@ -1,5 +1,13 @@
 module Data.Memory
-  ( Pointer(compareOffset, addOffset, composeOffsets, offsetSelf, unsafeCastPointer, unsafeCastOffset)
+  ( Pointer
+    ( offsetSelf
+    , unsafeOffsetFromBytes
+    , compareOffset
+    , addOffset
+    , composeOffsets
+    , unsafeCastPointer
+    , unsafeCastOffset
+    )
   , Offset(..)
   , offset
   , unsafeCastPtr
@@ -14,18 +22,20 @@ import           Control.Lens.Iso     (Iso, iso)
 import           Control.Lens.Monadic (ExistentialMonadicLens (ExistentialMonadicLens),
                                        MonadicLens, MonadicLens', monadicLens)
 import           Control.Monad        (Monad (return, (>>)))
-import           Data.Function        (($))
+import           Data.Function        (($), (.))
 import           Data.Kind            (Type)
-import           Data.Ord             (Ordering, compare, Ord)
+import           Data.Ord             (Ordering, compare)
 import           Foreign              (Int, Storable)
 import qualified Foreign.Ptr          as GHC
 import qualified Foreign.Storable     (Storable (peek, poke))
 import           GHC.IO               (IO)
 import           GHC.Num              ((+))
+import           GHC.Real             (Integral, fromIntegral)
 
 class Pointer p where
   data Offset p a b
   offsetSelf :: Offset p a a
+  unsafeOffsetFromBytes :: (Integral a) => a -> Offset p () ()
   addOffset :: p a -> Offset p a b -> p b
   composeOffsets :: Offset p a b -> Offset p b c -> Offset p a c
   -- mulOffset :: (Num n) => Proxy @(p a) -> n -> Offset p a b -> Offset p a b
@@ -70,6 +80,7 @@ deref' = derefOffset' offsetSelf
 instance Pointer GHC.Ptr where
   data Offset GHC.Ptr a b = GHCPtrOffset Int
   offsetSelf = GHCPtrOffset 0
+  unsafeOffsetFromBytes = GHCPtrOffset . fromIntegral
   p `addOffset ` (GHCPtrOffset o) = p `GHC.plusPtr` o
   (GHCPtrOffset a) `composeOffsets` (GHCPtrOffset b) = GHCPtrOffset $ a + b
   (GHCPtrOffset a) `compareOffset` (GHCPtrOffset b) = a `compare` b
