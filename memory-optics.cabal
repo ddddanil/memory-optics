@@ -31,6 +31,7 @@ custom-setup
 
 library
   exposed-modules:
+      Control.Lens.Barbie
       Control.Lens.Monadic
       Control.Monad.Distributive
       Control.Monad.Monomial
