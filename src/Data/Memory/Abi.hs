@@ -1,5 +1,6 @@
 module Data.Memory.Abi
   ( AbiLens
+  , abi
   , Abi()
   , SizeOf(SizeOf, sizeOf, alignOf)
   , SizeOfAbi
@@ -12,22 +13,22 @@ module Data.Memory.Abi
   )
 where
 
-import           Barbies               (Container)
-import           Barbies.Constraints   (Dict, requiringDict)
+import           Barbies               (ApplicativeB, Container)
 import           Control.Lens.Monadic  (ExistentialMonadicLens (ExistentialMonadicLens),
                                         MLensFor (MLensFor), MonadicLens,
-                                        MonadicLens', getM, hoistM, monadicLens)
+                                        MonadicLens', getM, hoistM, monadicLens,
+                                        putM)
 import           Control.Monad         (Monad (return, (>>), (>>=)), fmap)
 import           Data.Function         (($), (.))
-import           Data.Functor.Barbie   (ConstraintsB (AllB, baddDicts),
-                                        FunctorB (bmap), TraversableB,
-                                        bsequence)
+import           Data.Functor.Barbie   (ConstraintsB (AllB), FunctorB (bmap),
+                                        TraversableB, bmapC, bsequence,
+                                        btraverse_, bzip)
 import           Data.Functor.Compose  (Compose (Compose))
 import           Data.Functor.Identity (Identity (Identity))
 import           Data.Functor.Product  (Product (Pair))
 import           Data.Memory           (MemoryMonad, Offset,
                                         Pointer (addOffset, offsetSelf, unsafeCastOffset, unsafeCastPointer))
-import           Data.Proxy            (Proxy (Proxy))
+import           Data.Proxy            (Proxy)
 import           Data.Type.Equality    (type (~))
 import           GHC.Num               (Num ((+), (-)))
 import           GHC.Real              (Integral (mod))
@@ -80,21 +81,53 @@ type OffsetB p b = b (Offset p (b Identity))
 type AllSizedB p abi b = AllB (Sized p abi) b
 type SizedB p abi b = Container b (SizeOfAbi p abi)
 
-getBM
+readBM
   :: forall p abi b
   . (TraversableB b, ConstraintsB b, AllSizedB p abi b, Monad (MemoryMonad p))
   => Proxy abi
   -> OffsetB p b
   -> p (b Identity)
-  -> (MemoryMonad p) (b Identity)
-getBM p off ptr = let
-  offsetToLens :: forall a. Dict (Sized p abi) a -> Offset p (b Identity) a -> MLensFor (MemoryMonad p) (p (b Identity)) a
-  offsetToLens d o = (`requiringDict` d) $ MLensFor $ derefOffset' o (Proxy @abi)
+  -> (MemoryMonad p) (b Identity, p (b Identity))
+readBM p off ptr = let
+  offsetToLens :: forall a. (Sized p abi a) => Offset p (b Identity) a -> MLensFor (MemoryMonad p) (p (b Identity)) a
+  offsetToLens o = MLensFor $ derefOffset' o p
   composeM :: MemoryMonad p a -> Compose (MemoryMonad p) Identity a
   composeM = Compose . fmap Identity
   readOffset :: MLensFor (MemoryMonad p) (p (b Identity)) a -> Compose (MemoryMonad p) Identity a
   readOffset (MLensFor l) = getM (hoistM composeM l) ptr
-  in bsequence . bmap readOffset . bmap (\(Pair d o) -> offsetToLens d o) . baddDicts $ off
+  in do
+    b <- bsequence . bmap readOffset . bmapC @(Sized p abi) offsetToLens $ off
+    return (b, ptr)
+
+writeBM
+  :: forall p abi b
+  . (TraversableB b, ApplicativeB b, ConstraintsB b, AllSizedB p abi b, Monad (MemoryMonad p))
+  => Proxy abi
+  -> OffsetB p b
+  -> p (b Identity)
+  -> b Identity
+  -> (MemoryMonad p) (p (b Identity))
+writeBM p off ptr d = let
+  offsetToLens :: forall a. (Sized p abi a) => Offset p (b Identity) a -> MLensFor (MemoryMonad p) (p (b Identity)) a
+  offsetToLens o = MLensFor $ derefOffset' o p
+  writeOffset :: (Identity `Product` MLensFor (MemoryMonad p) (p (b Identity))) a -> MemoryMonad p ()
+  writeOffset (Pair (Identity d') (MLensFor l) ) = putM l d' ptr >> return ()
+  in do
+    btraverse_ writeOffset . bzip d . bmapC @(Sized p abi) offsetToLens $ off
+    return ptr
+
+abi
+  :: forall p abi b
+  . (TraversableB b, ApplicativeB b, ConstraintsB b, AllSizedB p abi b, Monad (MemoryMonad p))
+  => Proxy abi
+  -> OffsetB p b
+  -> AbiLens p (b Identity)
+abi p off = let
+  read_ :: p (b Identity) -> (MemoryMonad p) (b Identity, p (b Identity))
+  read_ = readBM p off
+  write_ :: p (b Identity) -> (b Identity) -> (MemoryMonad p) (p (b Identity))
+  write_ = writeBM p off
+  in monadicLens (ExistentialMonadicLens read_ write_)
 
 instance (Monad m) => Monad (Compose m Identity) where
   (>>=) a f = Compose . fmap Identity $ do
