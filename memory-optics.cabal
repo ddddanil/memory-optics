@@ -36,13 +36,11 @@ library
       Control.Monad.Distributive
       Control.Monad.Monomial
       Control.Monad.RightModule
+      Data.Functor.Identity.Lens
       Data.Memory
       Data.Memory.Abi
       Data.Memory.Abi.C
       Data.Memory.Abi.Native
-      Data.Memory.Allocation
-      Data.Memory.Effect
-      Data.Memory.Scalars
   other-modules:
       Data.Functor.Utils
   hs-source-dirs:
@@ -78,7 +76,7 @@ test-suite memory-optics-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Spec.Monad.Storable
+      Spec.Abi.Native
       Paths_memory_optics
   autogen-modules:
       Paths_memory_optics

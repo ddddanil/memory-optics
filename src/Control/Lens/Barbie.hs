@@ -3,6 +3,7 @@
 {-# LANGUAGE FieldSelectors #-}
 module Control.Lens.Barbie
   ( LensFor (LensFor, getLensFor)
+  , LensB
   , GLenses (glenses)
   , getLenses
   )
@@ -19,6 +20,8 @@ import           GHC.Generics.Lens     (_K1, _M1, generic)
 data LensFor s a = LensFor
   { getLensFor :: Lens' s a
   }
+
+type LensB b = b (LensFor (b Identity))
 
 class GLenses z i o where
   glenses :: Lens' (z Identity) (i p) -> o p
@@ -68,10 +71,10 @@ instance GLenses z U1 U1 where
 getLenses
   :: forall z
   . ( Generic (z Identity)
-    , Generic (z (LensFor (z Identity)))
+    , Generic (LensB z)
     , GLenses z
       (Rep (z Identity))
-      (Rep (z (LensFor (z Identity))))
+      (Rep (LensB z))
   )
-  => z (LensFor (z Identity))
+  => LensB z
 getLenses = to $ glenses @z $ generic

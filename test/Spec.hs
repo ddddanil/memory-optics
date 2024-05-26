@@ -3,11 +3,11 @@ module Main (main) where
 import           System.IO           (IO)
 import           Test.Tasty
 
-import qualified Spec.Monad.Storable
+import qualified Spec.Abi.Native
 
 tests :: TestTree
 tests = testGroup "Specs"
-  [ Spec.Monad.Storable.tests
+  [ Spec.Abi.Native.tests
   ]
 
 main :: IO ()

@@ -4,10 +4,10 @@ where
 
 import           Data.Int         (Int)
 import           Data.Memory.Abi  (SizeOf (SizeOf, alignOf, sizeOf),
-                                   Sized (AlignOf', SizeOf', sized))
+                                   Sized (AlignOf', SizeOf', readM, sized, writeM))
 import           Data.Proxy       (Proxy (Proxy), asProxyTypeOf)
 import           Foreign.Ptr      (Ptr)
-import qualified Foreign.Storable (Storable (alignment, sizeOf))
+import qualified Foreign.Storable (Storable (alignment, peek, poke, sizeOf))
 import           GHC.Err          (undefined)
 
 data Native
@@ -21,3 +21,6 @@ instance (Foreign.Storable.Storable a) => Sized Ptr Native a where
     sizeOf = Foreign.Storable.sizeOf p
     alignOf = Foreign.Storable.alignment p
     in SizeOf{sizeOf, alignOf}
+
+  readM _ = Foreign.Storable.peek
+  writeM _ = Foreign.Storable.poke

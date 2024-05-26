@@ -5,11 +5,15 @@
 --   Danil Doroshin, 2024
 --
 -- From https://julesh.com/2023/06/07/monadic-lenses-are-the-optic-for-right-monad-modules-i/
+{-# LANGUAGE FieldSelectors #-}
 module Control.Lens.Monadic
   ( ExistentialMonadicLens(ExistentialMonadicLens)
   , MonadicLens, MonadicLens'
   , monadicLens, unMonadicLens
+  , MLensFor(MLensFor, getMLensFor)
+  , MLensB
   , getM, putM, modifyM
+  , hoistM
   )
 where
 
@@ -20,6 +24,7 @@ import           Control.Monad.Monomial     (Monomial (Monomial), runMonomial)
 import           Control.Monad.RightModule  (RightModule (act))
 import           Data.Function              (($), (.))
 import           Data.Functor               (Functor (fmap))
+import           Data.Functor.Identity      (Identity)
 import           Data.Tuple                 (uncurry)
 
 data ExistentialMonadicLens m s t a b where
@@ -43,6 +48,11 @@ runMonadicLens l = runMonomial . l (\a -> Monomial (return (a, return)))
 unMonadicLens :: (Monad m) => MonadicLens m s t a b -> ExistentialMonadicLens m s t a b
 unMonadicLens l = ExistentialMonadicLens (runMonadicLens l) ($)
 
+data MLensFor m s a = MLensFor
+  { getMLensFor :: MonadicLens' m s a
+  }
+
+type MLensB m b = b (MLensFor m (b Identity))
 
 getM :: (Monad m) => MonadicLens m s t a b -> s -> m a
 getM l s = let
@@ -66,5 +76,9 @@ modifyM l f s = let
   b <- f a
   put_ b
 
--- transformM :: (m1 a -> m2 a) -> (MonadicOptic m1 s t a b -> MonadicOptic m2 s t a b)
--- transformM f o = undefined
+hoistM :: (Monad m, Monad n) => (forall x. m x -> n x) -> (MonadicLens m s t a b -> MonadicLens n s t a b)
+hoistM f o = let
+  get_ = runMonadicLens o
+  read_ = fmap f get_
+  write_ = fmap f
+  in monadicLens (ExistentialMonadicLens read_ write_)

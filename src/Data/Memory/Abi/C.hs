@@ -21,7 +21,7 @@ import           Data.Memory            (Offset,
 import           Data.Memory.Abi        (AllSizedB, OffsetB,
                                          SizeOf (SizeOf, alignOf, sizeOf),
                                          SizeOfAbi,
-                                         Sized (AlignOf', SizeOf', sized),
+                                         Sized (AlignOf', SizeOf', readM, sized, writeM),
                                          SizedB)
 import           Data.Memory.Abi.Native (Native)
 import           Data.Ord               (Ord (max))
@@ -51,6 +51,8 @@ instance
       , alignOf
       } = sized (Proxy @(Native, p a))
     in SizeOf{ sizeOf = fromIntegral sizeOf, alignOf = fromIntegral alignOf }
+  readM _ = readM (Proxy @Native)
+  writeM _ = writeM (Proxy @Native)
 
 combineLayouts
   :: forall p s a b c
