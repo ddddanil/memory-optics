@@ -40,6 +40,7 @@ default-extensions:
 - MagicHash
 - DeriveAnyClass
 - DerivingVia
+- DuplicateRecordFields
 
 dependencies:
 - base >= 4.7 && < 5
