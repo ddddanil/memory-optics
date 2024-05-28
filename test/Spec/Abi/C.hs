@@ -1,0 +1,56 @@
+{-# LANGUAGE UndecidableInstances #-}
+
+module Spec.Abi.C where
+
+import           Hedgehog
+import qualified Hedgehog.Gen        as Gen
+import qualified Hedgehog.Range      as Range
+import           Test.Tasty.Hedgehog
+
+import           Data.Function       (($), (.))
+import           Data.Functor.Barbie (ApplicativeB, ConstraintsB, AllBF)
+import           Data.Functor.Const  (Const (Const))
+import           Data.Memory         (Pointer (unsafeOffsetFromBytes))
+import           Data.Memory.Abi     (OffsetB, SizeOf (SizeOf, alignOf, sizeOf))
+import           Data.Memory.Abi.C   (greedyStructLayout)
+import           Data.Void           (Void)
+import Data.Eq (Eq)
+import           Foreign.Ptr         (Ptr)
+import GHC.Show (Show)
+import           GHC.Err             (undefined)
+import           GHC.Generics        (Generic)
+import           GHC.Word            (Word8)
+
+tests = fromGroup $$(discover)
+
+-- | * Layout tests
+
+data Layout_01 f
+  = Layout_01
+  { f1 :: f Word8
+  , f2 :: f Word8
+  }
+  deriving ( Generic, FunctorB, TraversableB, ApplicativeB, ConstraintsB )
+
+deriving instance AllBF Show f Layout_01 => Show (Layout_01 f)
+deriving instance AllBF Eq   f Layout_01 => Eq   (Layout_01 f)
+
+prop_Layout_01_expect_layout :: Property
+prop_Layout_01_expect_layout = let
+  (actualSize, actualLayout)
+    = greedyStructLayout @Layout_01 @Ptr
+      (Layout_01
+        { f1 = Const undefined
+        , f2 = Const undefined
+        })
+  expectSize = SizeOf
+    { sizeOf = 2
+    , alignOf = 1
+    }
+  expectLayout = Layout_01
+    { f1 = unsafeOffsetFromBytes 0
+    , f2 = unsafeOffsetFromBytes 1
+    }
+  in property . test $ do
+    actualSize === expectSize
+    actualLayout === expectLayout

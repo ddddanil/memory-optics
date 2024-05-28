@@ -19,6 +19,7 @@ import           Control.Lens.Monadic  (ExistentialMonadicLens (ExistentialMonad
                                         MonadicLens', getM, hoistM, monadicLens,
                                         putM)
 import           Control.Monad         (Monad (return, (>>), (>>=)), fmap)
+import           Data.Eq               (Eq)
 import           Data.Function         (($), (.))
 import           Data.Functor.Barbie   (ConstraintsB (AllB), FunctorB (bmap),
                                         TraversableB, bmapC, bsequence,
@@ -30,8 +31,10 @@ import           Data.Memory           (MemoryMonad, Offset,
                                         Pointer (addOffset, offsetSelf, unsafeCastOffset, unsafeCastPointer))
 import           Data.Proxy            (Proxy)
 import           Data.Type.Equality    (type (~))
+import           GHC.Generics          (Generic)
 import           GHC.Num               (Num ((+), (-)))
 import           GHC.Real              (Integral (mod))
+import           GHC.Show              (Show)
 
 type AbiLens p a = MonadicLens (MemoryMonad p) (p a) (p a) a a
 
@@ -41,15 +44,19 @@ data SizeOf s a = SizeOf
   { sizeOf  :: !s
   , alignOf :: !a
   }
+  deriving (Generic)
+
+deriving instance (Show s, Show a) => Show (SizeOf s a)
+deriving instance (Eq s, Eq a) => Eq (SizeOf s a)
 
 class (Pointer p) => Sized p abi a where
-  type SizeOf' p abi
-  type AlignOf' p abi
-  sized :: Proxy (abi, p a) -> SizeOf (SizeOf' p abi) (AlignOf' p abi)
+  type SizeOf' abi
+  type AlignOf' abi
+  sized :: Proxy (abi, p a) -> SizeOf (SizeOf' abi) (AlignOf' abi)
   readM :: Proxy abi -> p a -> MemoryMonad p a
   writeM :: Proxy abi -> p a -> a -> MemoryMonad p ()
 
-type SizeOfAbi p abi = SizeOf (SizeOf' p abi) (AlignOf' p abi)
+type SizeOfAbi abi = SizeOf (SizeOf' abi) (AlignOf' abi)
 
 derefOffset :: forall p abi s t a b. (Sized p abi a, Sized p abi b, Monad (MemoryMonad p)) => Offset p s a -> Proxy abi -> MonadicLens (MemoryMonad p) (p s) (p t) a b
 derefOffset o p = let
@@ -79,7 +86,7 @@ minimalStride SizeOf{sizeOf, alignOf} =
 type OffsetB p b = b (Offset p (b Identity))
 
 type AllSizedB p abi b = AllB (Sized p abi) b
-type SizedB p abi b = Container b (SizeOfAbi p abi)
+type SizedB abi b = Container b (SizeOfAbi abi)
 
 readBM
   :: forall p abi b

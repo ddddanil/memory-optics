@@ -18,11 +18,13 @@ where
 
 import           Control.Lens.Getter (Getter, to)
 import           Control.Lens.Iso    (Iso, iso)
+import           Data.Eq             (Eq)
 import           Data.Function       (($), (.))
 import           Data.Kind           (Type)
-import           Data.Ord            (Ordering, compare)
+import           Data.Ord            (Ordering (EQ), compare)
 import           Foreign             (Int)
 import qualified Foreign.Ptr         as GHC
+import           GHC.Base            (Eq ((==)))
 import           GHC.IO              (IO)
 import           GHC.Num             ((+))
 import           GHC.Real            (Integral, fromIntegral)
@@ -40,6 +42,9 @@ class Pointer p where
   unsafeCastPointer :: p a -> p b
   -- | Unsafe
   unsafeCastOffset ::  Offset p s a -> Offset p t b
+
+instance (Pointer p) => Eq (Offset p a b) where
+  (==) a b = a `compareOffset` b == EQ
 
 type OffsetGetter p a b = Getter (p a) (p b)
 

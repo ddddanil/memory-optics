@@ -1,4 +1,4 @@
-module Spec.Abi.Native (tests) where
+module Spec.Abi.Native where
 
 import           Control.Lens                 ((&))
 import           Control.Lens.Monadic         (getM, putM)

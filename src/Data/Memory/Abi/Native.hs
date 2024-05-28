@@ -13,8 +13,8 @@ import           GHC.Err          (undefined)
 data Native
 
 instance (Foreign.Storable.Storable a) => Sized Ptr Native a where
-  type SizeOf' Ptr Native = Int
-  type AlignOf' Ptr Native = Int
+  type SizeOf' Native = Int
+  type AlignOf' Native = Int
   sized :: Proxy (Native, Ptr a) -> SizeOf Int Int
   sized _ = let
     p = undefined `asProxyTypeOf` Proxy @a
