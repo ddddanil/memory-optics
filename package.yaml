@@ -28,6 +28,7 @@ default-extensions:
 - TemplateHaskell
 - QuasiQuotes
 - PatternSynonyms
+- ViewPatterns
 - LambdaCase
 - BlockArguments
 - GADTs

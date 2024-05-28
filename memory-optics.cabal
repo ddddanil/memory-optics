@@ -53,6 +53,7 @@ library
       TemplateHaskell
       QuasiQuotes
       PatternSynonyms
+      ViewPatterns
       LambdaCase
       BlockArguments
       GADTs
@@ -93,6 +94,7 @@ test-suite memory-optics-test
       TemplateHaskell
       QuasiQuotes
       PatternSynonyms
+      ViewPatterns
       LambdaCase
       BlockArguments
       GADTs

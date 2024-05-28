@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+
 module Data.Memory.Abi.C
   ( CAbi
   , greedyStructLayout
@@ -7,16 +9,19 @@ where
 
 import           Barbies                   (Container (Container, getContainer))
 import           Barbies.Constraints       (Dict, requiringDict)
-import           Data.Function             (($), (.))
+import           Control.Lens              (Field2 (_2), (%~))
+import           Data.Function             (($), (&), (.))
 import           Data.Functor              (Functor (fmap))
 import           Data.Functor.Barbie       (ConstraintsB (baddDicts),
                                             FunctorB (bmap), TraversableB)
 import           Data.Functor.Barbie.Utils (bmapAccumL)
 import           Data.Functor.Const        (Const (Const))
+import           Data.Functor.Identity     (Identity)
 import           Data.Functor.Product      (Product (Pair))
-import           Data.Memory               (Offset,
+import           Data.Memory               (Offset, OffsetB,
+                                            OffsetFor (OffsetFor),
                                             Pointer (unsafeOffsetFromBytes))
-import           Data.Memory.Abi           (AllSizedB, OffsetB,
+import           Data.Memory.Abi           (AllSizedB,
                                             SizeOf (SizeOf, alignOf, sizeOf),
                                             SizeOfAbi,
                                             Sized (AlignOf', SizeOf', readM, sized, writeM),
@@ -32,19 +37,35 @@ import           GHC.Real                  (Integral, fromIntegral)
 
 data CAbi
 
-instance (Pointer p) => Sized p CAbi a where
+instance
+  ( Pointer p
+  , Sized p Native a
+  , Integral (SizeOf' Native)
+  , Integral (AlignOf' Native)
+  )
+  => Sized p CAbi a
+  where
   type SizeOf' CAbi = Word64
   type AlignOf' CAbi = Word64
-
-class CSized a where
+  sized :: Proxy (CAbi, p a) -> SizeOfAbi CAbi
+  sized _ = let
+    SizeOf
+      { sizeOf
+      , alignOf
+      } = sized (Proxy @(Native, p a))
+    in SizeOf{ sizeOf = fromIntegral sizeOf, alignOf = fromIntegral alignOf }
+  readM _ = readM (Proxy @Native)
+  writeM _ = writeM (Proxy @Native)
 
 combineLayouts
   :: forall p s a b c
   . (Pointer p, Integral s, Ord a, s ~ a)
-  => SizeOf s a
+  => Proxy (p b, p c)
+  -> SizeOf s a
   -> SizeOf s a
   -> (SizeOf s a, Offset p b c)
 combineLayouts
+  p
   SizeOf
   { sizeOf = accSize
   , alignOf = accAlign
@@ -58,7 +79,7 @@ combineLayouts
   padding = minimalStride SizeOf{sizeOf=accSize, alignOf=newAlign} - accSize
   -- NOTE: fix padding
   sizeOf = accSize + padding + newSize
-  offset = unsafeOffsetFromBytes (accSize + padding)
+  offset = unsafeOffsetFromBytes p (accSize + padding)
   in (SizeOf{sizeOf, alignOf}, offset)
 
 emptyLayout :: (Num s, Num a) => SizeOf s a
@@ -82,7 +103,9 @@ greedyStructLayout
 greedyStructLayout b
   = let
   s = getContainer . cSized (Proxy @p) $ b
-  in bmapAccumL (\a (Const c) -> combineLayouts a c) emptyLayout s
+  combine :: forall a. SizeOfAbi CAbi -> Const (SizeOfAbi CAbi) a -> (SizeOfAbi CAbi, OffsetFor p (b Identity) a)
+  combine a (Const c) = combineLayouts (Proxy @(p (b Identity), p a)) a c & _2 %~ OffsetFor
+  in bmapAccumL combine emptyLayout s
 
 cSized
  :: forall b p

@@ -3,23 +3,26 @@
 module Spec.Abi.C where
 
 import           Hedgehog
-import qualified Hedgehog.Gen        as Gen
-import qualified Hedgehog.Range      as Range
+import qualified Hedgehog.Gen          as Gen
+import qualified Hedgehog.Range        as Range
 import           Test.Tasty.Hedgehog
 
-import           Data.Function       (($), (.))
-import           Data.Functor.Barbie (ApplicativeB, ConstraintsB, AllBF)
-import           Data.Functor.Const  (Const (Const))
-import           Data.Memory         (Pointer (unsafeOffsetFromBytes))
-import           Data.Memory.Abi     (OffsetB, SizeOf (SizeOf, alignOf, sizeOf))
-import           Data.Memory.Abi.C   (greedyStructLayout)
-import           Data.Void           (Void)
-import Data.Eq (Eq)
-import           Foreign.Ptr         (Ptr)
-import GHC.Show (Show)
-import           GHC.Err             (undefined)
-import           GHC.Generics        (Generic)
-import           GHC.Word            (Word8)
+import           Data.Eq               (Eq)
+import           Data.Function         (($), (.))
+import           Data.Functor.Barbie   (AllBF, ApplicativeB, ConstraintsB,
+                                        FunctorB, TraversableB)
+import           Data.Functor.Const    (Const (Const))
+import           Data.Functor.Identity (Identity)
+import           Data.Memory           (OffsetFor (OffsetFor),
+                                        Pointer (unsafeOffsetFromBytes))
+import           Data.Memory.Abi       (SizeOf (SizeOf, alignOf, sizeOf))
+import           Data.Memory.Abi.C     (greedyStructLayout)
+import           Data.Proxy            (Proxy (Proxy))
+import           Foreign.Ptr           (Ptr)
+import           GHC.Err               (undefined)
+import           GHC.Generics          (Generic)
+import           GHC.Show              (Show)
+import           GHC.Word              (Word8)
 
 tests = fromGroup $$(discover)
 
@@ -48,8 +51,8 @@ prop_Layout_01_expect_layout = let
     , alignOf = 1
     }
   expectLayout = Layout_01
-    { f1 = unsafeOffsetFromBytes 0
-    , f2 = unsafeOffsetFromBytes 1
+    { f1 = OffsetFor . unsafeOffsetFromBytes (Proxy @(Ptr (Layout_01 Identity), Ptr Word8)) $ 0
+    , f2 = OffsetFor . unsafeOffsetFromBytes (Proxy @(Ptr (Layout_01 Identity), Ptr Word8)) $ 1
     }
   in property . test $ do
     actualSize === expectSize

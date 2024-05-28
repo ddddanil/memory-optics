@@ -1,3 +1,6 @@
+{-# LANGUAGE FieldSelectors       #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 module Data.Memory
   ( Pointer
     ( offsetSelf
@@ -8,43 +11,44 @@ module Data.Memory
     , unsafeCastPointer
     , unsafeCastOffset
     )
-  , Offset(..)
+  , Offset
   , MemoryMonad
   , offset
   , unsafeCastPtr
+  , OffsetFor(OffsetFor, getOffsetFor)
+  , OffsetB
   , OffsetGetter
   )
 where
 
-import           Control.Lens.Getter (Getter, to)
-import           Control.Lens.Iso    (Iso, iso)
-import           Data.Eq             (Eq)
-import           Data.Function       (($), (.))
-import           Data.Kind           (Type)
-import           Data.Ord            (Ordering (EQ), compare)
-import           Foreign             (Int)
-import qualified Foreign.Ptr         as GHC
-import           GHC.Base            (Eq ((==)))
-import           GHC.IO              (IO)
-import           GHC.Num             ((+))
-import           GHC.Real            (Integral, fromIntegral)
+import           Control.Lens.Getter   (Getter, to)
+import           Control.Lens.Iso      (Iso, iso)
+import           Data.Eq               (Eq)
+import           Data.Function         (($))
+import           Data.Functor.Identity (Identity)
+import           Data.Kind             (Type)
+import           Data.Ord              (Ordering, compare)
+import           Data.Proxy            (Proxy)
+import           Foreign               (Int)
+import qualified Foreign.Ptr           as GHC
+import           GHC.IO                (IO)
+import           GHC.Num               ((+))
+import           GHC.Real              (Integral, fromIntegral)
+import           GHC.Show              (Show)
 
 class Pointer p where
-  data Offset p a b
+  type Offset p a b
   type MemoryMonad p :: Type -> Type
-  offsetSelf :: Offset p a a
-  unsafeOffsetFromBytes :: forall a b c. (Integral a) => a -> Offset p b c
+  offsetSelf :: Proxy (p a) -> Offset p a a
+  unsafeOffsetFromBytes :: forall a b c. (Integral a) => Proxy (p b, p c) -> a -> Offset p b c
   addOffset :: p a -> Offset p a b -> p b
-  composeOffsets :: Offset p a b -> Offset p b c -> Offset p a c
+  composeOffsets :: Proxy (p a, p b, p c) -> Offset p a b -> Offset p b c -> Offset p a c
   -- mulOffset :: (Num n) => Proxy @(p a) -> n -> Offset p a b -> Offset p a b
-  compareOffset ::  Offset p a b -> Offset p a c -> Ordering
+  compareOffset :: Proxy (p a, p b, p c) -> Offset p a b -> Offset p a c -> Ordering
   -- | Unsafe
   unsafeCastPointer :: p a -> p b
   -- | Unsafe
-  unsafeCastOffset ::  Offset p s a -> Offset p t b
-
-instance (Pointer p) => Eq (Offset p a b) where
-  (==) a b = a `compareOffset` b == EQ
+  unsafeCastOffset :: Proxy (p s, p a, p t, p b) -> Offset p s a -> Offset p t b
 
 type OffsetGetter p a b = Getter (p a) (p b)
 
@@ -54,14 +58,24 @@ offset o = to $ \p -> p `addOffset` o
 unsafeCastPtr :: (Pointer p) => Iso (p a) (p a) (p b) (p b)
 unsafeCastPtr = iso unsafeCastPointer unsafeCastPointer
 
+newtype OffsetFor p a b
+  = OffsetFor
+  { getOffsetFor :: Offset p a b
+  }
+
+deriving instance Show (Offset p a b) => Show (OffsetFor p a b)
+deriving instance Eq   (Offset p a b) => Eq   (OffsetFor p a b)
+
+type OffsetB p b = b (OffsetFor p (b Identity))
+
 instance Pointer GHC.Ptr where
-  data Offset GHC.Ptr a b = GHCPtrOffset Int
+  type Offset GHC.Ptr a b = Int
   type MemoryMonad GHC.Ptr = IO
-  offsetSelf = GHCPtrOffset 0
-  unsafeOffsetFromBytes = GHCPtrOffset . fromIntegral
-  p `addOffset ` (GHCPtrOffset o) = p `GHC.plusPtr` o
-  (GHCPtrOffset a) `composeOffsets` (GHCPtrOffset b) = GHCPtrOffset $ a + b
-  (GHCPtrOffset a) `compareOffset` (GHCPtrOffset b) = a `compare` b
-  unsafeCastOffset (GHCPtrOffset o) = GHCPtrOffset o
+  offsetSelf _ = 0
+  unsafeOffsetFromBytes _ = fromIntegral
+  p `addOffset ` o = p `GHC.plusPtr` o
+  composeOffsets _ a b = a + b
+  compareOffset _ a b = a `compare` b
+  unsafeCastOffset _ o = o
   unsafeCastPointer = GHC.castPtr
 
