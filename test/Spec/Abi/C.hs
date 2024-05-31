@@ -3,26 +3,30 @@
 module Spec.Abi.C where
 
 import           Hedgehog
-import qualified Hedgehog.Gen          as Gen
-import qualified Hedgehog.Range        as Range
+import qualified Hedgehog.Gen             as Gen
+import qualified Hedgehog.Range           as Range
 import           Test.Tasty.Hedgehog
 
-import           Data.Eq               (Eq)
-import           Data.Function         (($), (.))
-import           Data.Functor.Barbie   (AllBF, ApplicativeB, ConstraintsB,
-                                        FunctorB, TraversableB)
-import           Data.Functor.Const    (Const (Const))
-import           Data.Functor.Identity (Identity)
-import           Data.Memory           (OffsetFor (OffsetFor),
-                                        Pointer (unsafeOffsetFromBytes))
-import           Data.Memory.Abi       (SizeOf (SizeOf, alignOf, sizeOf))
-import           Data.Memory.Abi.C     (greedyStructLayout)
-import           Data.Proxy            (Proxy (Proxy))
-import           Foreign.Ptr           (Ptr)
-import           GHC.Err               (undefined)
-import           GHC.Generics          (Generic)
-import           GHC.Show              (Show)
-import           GHC.Word              (Word16, Word8)
+import Control.Applicative (Applicative)
+import           Data.Eq                  (Eq)
+import           Data.Function            (($), (.))
+import           Data.Functor             (Functor)
+import           Data.Functor.Barbie      (AllBF, ApplicativeB, ConstraintsB,
+                                           FunctorB, TraversableB)
+import           Data.Functor.Const       (Const (Const))
+import           Data.Functor.Identity    (Identity)
+import           Data.Functor.Transformer (AllTF, ApplicativeT, ConstraintsT,
+                                           FunctorT, TraversableT)
+import           Data.Memory              (OffsetFor (OffsetFor),
+                                           Pointer (unsafeOffsetFromBytes))
+import           Data.Memory.Abi          (SizeOf (SizeOf, alignOf, sizeOf))
+import           Data.Memory.Abi.C        (greedyStructLayout)
+import           Data.Proxy               (Proxy (Proxy))
+import           Foreign.Ptr              (Ptr)
+import           GHC.Err                  (undefined)
+import           GHC.Generics             (Generic, Generic1)
+import           GHC.Show                 (Show)
+import           GHC.Word                 (Word16, Word8)
 
 tests = fromGroup $$(discover)
 
@@ -45,11 +49,7 @@ deriving instance AllBF Eq   f Layout_01 => Eq   (Layout_01 f)
 prop_Layout_01_expect_layout :: Property
 prop_Layout_01_expect_layout = let
   (actualSize, actualLayout)
-    = greedyStructLayout @Layout_01 @Ptr
-      (Layout_01
-        { f1 = Const undefined
-        , f2 = Const undefined
-        })
+    = greedyStructLayout @Layout_01 @Ptr Proxy
   expectSize = SizeOf
     { sizeOf = 2
     , alignOf = 1
@@ -77,11 +77,7 @@ deriving instance AllBF Eq   f Layout_02 => Eq   (Layout_02 f)
 prop_Layout_02_expect_layout :: Property
 prop_Layout_02_expect_layout = let
   (actualSize, actualLayout)
-    = greedyStructLayout @Layout_02 @Ptr
-      (Layout_02
-        { f1 = Const undefined
-        , f2 = Const undefined
-        })
+    = greedyStructLayout @Layout_02 @Ptr Proxy
   expectSize = SizeOf
     { sizeOf = 3
     , alignOf = 2
@@ -109,11 +105,7 @@ deriving instance AllBF Eq   f Layout_03 => Eq   (Layout_03 f)
 prop_Layout_03_expect_layout :: Property
 prop_Layout_03_expect_layout = let
   (actualSize, actualLayout)
-    = greedyStructLayout @Layout_03 @Ptr
-      (Layout_03
-        { f1 = Const undefined
-        , f2 = Const undefined
-        })
+    = greedyStructLayout @Layout_03 @Ptr Proxy
   expectSize = SizeOf
     { sizeOf = 4
     , alignOf = 2
@@ -125,3 +117,5 @@ prop_Layout_03_expect_layout = let
   in property . test $ do
     actualSize === expectSize
     actualLayout === expectLayout
+
+-- | Layout 04

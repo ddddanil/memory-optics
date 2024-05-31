@@ -1,6 +1,5 @@
 module Data.Memory.Abi
   ( AbiLens
-  , abi
   , Abi()
   , SizeOf(SizeOf, sizeOf, alignOf)
   , SizeOfAbi
@@ -9,6 +8,7 @@ module Data.Memory.Abi
   , derefOffset, derefOffset', deref, deref'
   , AllSizedB
   , SizedB
+  , bbuildAbi
   )
 where
 
@@ -26,9 +26,10 @@ import           Data.Functor.Barbie   (ConstraintsB (AllB), FunctorB (bmap),
 import           Data.Functor.Compose  (Compose (Compose))
 import           Data.Functor.Identity (Identity (Identity))
 import           Data.Functor.Product  (Product (Pair))
-import           Data.Memory           (MemoryMonad, Offset, OffsetB, OffsetFor(getOffsetFor),
+import           Data.Memory           (MemoryMonad, Offset, OffsetB,
+                                        OffsetFor (getOffsetFor),
                                         Pointer (addOffset, offsetSelf, unsafeCastOffset, unsafeCastPointer))
-import           Data.Proxy            (Proxy(Proxy))
+import           Data.Proxy            (Proxy (Proxy))
 import           Data.Type.Equality    (type (~))
 import           GHC.Generics          (Generic)
 import           GHC.Num               (Num ((+), (-)))
@@ -52,10 +53,17 @@ class (Pointer p) => Sized p abi a where
   type SizeOf' abi
   type AlignOf' abi
   sized :: Proxy (abi, p a) -> SizeOf (SizeOf' abi) (AlignOf' abi)
+  -- abi :: Proxy abi -> AbiLens p a
   readM :: Proxy abi -> p a -> MemoryMonad p a
   writeM :: Proxy abi -> p a -> a -> MemoryMonad p ()
 
 type SizeOfAbi abi = SizeOf (SizeOf' abi) (AlignOf' abi)
+
+-- derefOffset :: forall p abi s t a b. (Sized p abi a, Sized p abi b, Monad (MemoryMonad p)) => Offset p s a -> Proxy abi -> MonadicLens (MemoryMonad p) (p s) (p t) a b
+-- derefOffset o p = let
+--   l :: Lens' (p a) (p b)
+--   l = lens from_ to_
+--   in l . (abi p)
 
 derefOffset :: forall p abi s t a b. (Sized p abi a, Sized p abi b, Monad (MemoryMonad p)) => Offset p s a -> Proxy abi -> MonadicLens (MemoryMonad p) (p s) (p t) a b
 derefOffset o p = let
@@ -120,13 +128,13 @@ writeBM p off ptr d = let
     btraverse_ writeOffset . bzip d . bmapC @(Sized p abi) offsetToLens $ off
     return ptr
 
-abi
+bbuildAbi
   :: forall p abi b
   . (TraversableB b, ApplicativeB b, ConstraintsB b, AllSizedB p abi b, Monad (MemoryMonad p))
   => Proxy abi
   -> OffsetB p b
   -> AbiLens p (b Identity)
-abi p off = let
+bbuildAbi p off = let
   read_ :: p (b Identity) -> (MemoryMonad p) (b Identity, p (b Identity))
   read_ = readBM p off
   write_ :: p (b Identity) -> (b Identity) -> (MemoryMonad p) (p (b Identity))

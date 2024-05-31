@@ -7,25 +7,25 @@ module Data.Memory.Abi.C
   )
 where
 
-import           Barbies                   (Container (Container, getContainer))
-import           Barbies.Constraints       (Dict, requiringDict)
-import           Control.Lens              (Field2 (_2), (%~))
+import           Barbies                   (ApplicativeB,
+                                            Container (Container, getContainer))
+import           Control.Lens              (_1, _2, (%~), (^.))
+import           Control.Lens.Monadic      (ExistentialMonadicLens (ExistentialMonadicLens),
+                                            getM, monadicLens, putM)
+import           Control.Monad             (Monad (return))
 import           Data.Function             (($), (&), (.))
-import           Data.Functor              (Functor (fmap))
-import           Data.Functor.Barbie       (ConstraintsB (baddDicts),
-                                            FunctorB (bmap), TraversableB)
-import           Data.Functor.Barbie.Utils (bmapAccumL)
+import           Data.Functor.Barbie       (ConstraintsB, TraversableB, bmapC)
+import           Data.Functor.Barbie.Utils (bmapAccumL, bvoid)
 import           Data.Functor.Const        (Const (Const))
 import           Data.Functor.Identity     (Identity)
-import           Data.Functor.Product      (Product (Pair))
 import           Data.Memory               (Offset, OffsetB,
                                             OffsetFor (OffsetFor),
-                                            Pointer (unsafeOffsetFromBytes))
-import           Data.Memory.Abi           (AllSizedB,
+                                            Pointer (MemoryMonad, unsafeOffsetFromBytes))
+import           Data.Memory.Abi           (AbiLens, AllSizedB,
                                             SizeOf (SizeOf, alignOf, sizeOf),
                                             SizeOfAbi,
                                             Sized (AlignOf', SizeOf', readM, sized, writeM),
-                                            SizedB, minimalStride)
+                                            SizedB, bbuildAbi, minimalStride)
 import           Data.Memory.Abi.Native    (Native)
 import           Data.Ord                  (Ord (max))
 import           Data.Proxy                (Proxy (Proxy))
@@ -37,25 +37,69 @@ import           GHC.Real                  (Integral, fromIntegral)
 
 data CAbi
 
-instance
-  ( Pointer p
-  , Sized p Native a
-  , Integral (SizeOf' Native)
-  , Integral (AlignOf' Native)
-  )
-  => Sized p CAbi a
-  where
-  type SizeOf' CAbi = Word64
-  type AlignOf' CAbi = Word64
-  sized :: Proxy (CAbi, p a) -> SizeOfAbi CAbi
-  sized _ = let
-    SizeOf
-      { sizeOf
-      , alignOf
-      } = sized (Proxy @(Native, p a))
-    in SizeOf{ sizeOf = fromIntegral sizeOf, alignOf = fromIntegral alignOf }
-  readM _ = readM (Proxy @Native)
-  writeM _ = writeM (Proxy @Native)
+class CSized p a where
+  csized :: Proxy (p a) -> SizeOfAbi CAbi
+  cabi :: Proxy (p a) -> AbiLens p a
+
+  default csized
+    :: forall b
+    . ( Pointer p
+      , TraversableB b
+      , ApplicativeB b
+      , ConstraintsB b
+      , AllSizedB p CAbi b
+      , a ~ (b Identity)
+      )
+    => Proxy (p a)
+    -> SizeOfAbi CAbi
+  csized _ = greedyStructLayout @b (Proxy @p) ^. _1
+  default cabi
+    :: forall b
+    . ( Pointer p
+      , TraversableB b
+      , ApplicativeB b
+      , ConstraintsB b
+      , AllSizedB p CAbi b
+      , Monad (MemoryMonad p)
+      , a ~ (b Identity)
+      )
+    => Proxy (p a)
+    -> AbiLens p a
+  cabi _ = let
+    off = greedyStructLayout @b (Proxy @p) ^. _2
+    in bbuildAbi (Proxy @CAbi) off
+
+instance (Pointer p, CSized p a, Monad (MemoryMonad p)) => Sized p CAbi a where
+   type SizeOf' CAbi = Word64
+   type AlignOf' CAbi = Word64
+   sized :: Proxy (CAbi, p a) -> SizeOfAbi CAbi
+   sized _ = csized (Proxy @(p a))
+   readM :: Proxy CAbi -> p a -> MemoryMonad p a
+   readM _ = getM $ cabi $ Proxy @(p a)
+   writeM :: Proxy CAbi -> p a -> a -> MemoryMonad p ()
+   writeM _ p d = do
+     _ <- p & cabi (Proxy @(p a)) `putM` d
+     return ()
+
+instance (Sized p Native a, Monad (MemoryMonad p)) => CSized p a where
+  csized :: Proxy (p a) -> SizeOfAbi CAbi
+  csized _ = let
+    SizeOf{sizeOf, alignOf} = sized (Proxy @(Native, p a))
+    in SizeOf
+       { sizeOf = fromIntegral sizeOf
+       , alignOf = fromIntegral alignOf
+       }
+  cabi :: Proxy (p a) -> AbiLens p a
+  cabi _ = let
+    read_ :: p a -> (MemoryMonad p) (a, p a)
+    read_ p = do
+      d <- readM (Proxy @Native) p
+      return (d, p)
+    write_ :: p a -> a -> (MemoryMonad p) (p a)
+    write_ p d = do
+      writeM (Proxy @Native) p d
+      return p
+    in monadicLens (ExistentialMonadicLens read_ write_)
 
 combineLayouts
   :: forall p s a b c
@@ -92,28 +136,25 @@ greedyStructLayout
   :: forall b p
   . ( TraversableB b
     , ConstraintsB b
+    , ApplicativeB b
     , AllSizedB p CAbi b
     , Pointer p
-    , Integral (SizeOf' CAbi)
-    , Ord (AlignOf' CAbi)
-    , Num (AlignOf' CAbi)
     )
-  => b (Const Void)
+  => Proxy p
   -> (SizeOfAbi CAbi, OffsetB p b)
-greedyStructLayout b
+greedyStructLayout p
   = let
-  s = getContainer . cSized (Proxy @p) $ b
+  s = getContainer . cSized $ p
   combine :: forall a. SizeOfAbi CAbi -> Const (SizeOfAbi CAbi) a -> (SizeOfAbi CAbi, OffsetFor p (b Identity) a)
   combine a (Const c) = combineLayouts (Proxy @(p (b Identity), p a)) a c & _2 %~ OffsetFor
   in bmapAccumL combine emptyLayout s
 
 cSized
  :: forall b p
- . (ConstraintsB b, AllSizedB p CAbi b)
+ . (ConstraintsB b, ApplicativeB b, AllSizedB p CAbi b)
  => Proxy p
- -> b (Const Void)
  -> SizedB CAbi b
 cSized _ = let
-  ss :: forall a. Dict (Sized p CAbi) a -> SizeOfAbi CAbi
-  ss = requiringDict (sized (Proxy @(CAbi, p a)))
-  in Container . bmap (fmap Const ss) . bmap (\(Pair d _) -> d) . baddDicts
+  ss :: forall a. (Sized p CAbi a) => Const Void a -> Const (SizeOfAbi CAbi) a
+  ss _ = Const $ sized (Proxy @(CAbi, p a))
+  in Container . bmapC @(Sized p CAbi) ss $ bvoid
