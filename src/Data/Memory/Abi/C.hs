@@ -10,9 +10,7 @@ where
 import           Barbies                   (ApplicativeB,
                                             Container (Container, getContainer))
 import           Control.Lens              (_1, _2, (%~), (^.))
-import           Control.Lens.Monadic      (ExistentialMonadicLens (ExistentialMonadicLens),
-                                            getM, monadicLens, putM)
-import           Control.Monad             (Monad (return))
+import           Control.Monad             (Monad)
 import           Data.Function             (($), (&), (.))
 import           Data.Functor.Barbie       (ConstraintsB, TraversableB, bmapC)
 import           Data.Functor.Barbie.Utils (bmapAccumL, bvoid)
@@ -24,7 +22,7 @@ import           Data.Memory               (Offset, OffsetB,
 import           Data.Memory.Abi           (AbiLens, AllSizedB,
                                             SizeOf (SizeOf, alignOf, sizeOf),
                                             SizeOfAbi,
-                                            Sized (AlignOf', SizeOf', readM, sized, writeM),
+                                            Sized (AlignOf', SizeOf', abi, sized),
                                             SizedB, bbuildAbi, minimalStride)
 import           Data.Memory.Abi.Native    (Native)
 import           Data.Ord                  (Ord (max))
@@ -69,19 +67,15 @@ class CSized p a where
     off = greedyStructLayout @b (Proxy @p) ^. _2
     in bbuildAbi (Proxy @CAbi) off
 
-instance (Pointer p, CSized p a, Monad (MemoryMonad p)) => Sized p CAbi a where
+instance (Pointer p, CSized p a) => Sized p CAbi a where
    type SizeOf' CAbi = Word64
    type AlignOf' CAbi = Word64
    sized :: Proxy (CAbi, p a) -> SizeOfAbi CAbi
    sized _ = csized (Proxy @(p a))
-   readM :: Proxy CAbi -> p a -> MemoryMonad p a
-   readM _ = getM $ cabi $ Proxy @(p a)
-   writeM :: Proxy CAbi -> p a -> a -> MemoryMonad p ()
-   writeM _ p d = do
-     _ <- p & cabi (Proxy @(p a)) `putM` d
-     return ()
+   abi :: Proxy CAbi -> AbiLens p a
+   abi _ = cabi (Proxy @(p a))
 
-instance (Sized p Native a, Monad (MemoryMonad p)) => CSized p a where
+instance (Sized p Native a) => CSized p a where
   csized :: Proxy (p a) -> SizeOfAbi CAbi
   csized _ = let
     SizeOf{sizeOf, alignOf} = sized (Proxy @(Native, p a))
@@ -90,16 +84,7 @@ instance (Sized p Native a, Monad (MemoryMonad p)) => CSized p a where
        , alignOf = fromIntegral alignOf
        }
   cabi :: Proxy (p a) -> AbiLens p a
-  cabi _ = let
-    read_ :: p a -> (MemoryMonad p) (a, p a)
-    read_ p = do
-      d <- readM (Proxy @Native) p
-      return (d, p)
-    write_ :: p a -> a -> (MemoryMonad p) (p a)
-    write_ p d = do
-      writeM (Proxy @Native) p d
-      return p
-    in monadicLens (ExistentialMonadicLens read_ write_)
+  cabi _ = abi (Proxy @Native)
 
 combineLayouts
   :: forall p s a b c

@@ -4,8 +4,16 @@ module Data.Memory.Abi
   , SizeOf(SizeOf, sizeOf, alignOf)
   , SizeOfAbi
   , minimalStride
-  , Sized(SizeOf', AlignOf', sized, readM, writeM)
-  , derefOffset, derefOffset', deref, deref'
+  , Sized
+    ( SizeOf'
+    , AlignOf'
+    , sized
+    , abi
+    -- , readM
+    -- , writeM
+    )
+  , derefOffset
+  , deref
   , AllSizedB
   , SizedB
   , bbuildAbi
@@ -28,7 +36,7 @@ import           Data.Functor.Identity (Identity (Identity))
 import           Data.Functor.Product  (Product (Pair))
 import           Data.Memory           (MemoryMonad, Offset, OffsetB,
                                         OffsetFor (getOffsetFor),
-                                        Pointer (addOffset, offsetSelf, unsafeCastOffset, unsafeCastPointer))
+                                        Pointer (offsetSelf), offset)
 import           Data.Proxy            (Proxy (Proxy))
 import           Data.Type.Equality    (type (~))
 import           GHC.Generics          (Generic)
@@ -53,36 +61,27 @@ class (Pointer p) => Sized p abi a where
   type SizeOf' abi
   type AlignOf' abi
   sized :: Proxy (abi, p a) -> SizeOf (SizeOf' abi) (AlignOf' abi)
-  -- abi :: Proxy abi -> AbiLens p a
-  readM :: Proxy abi -> p a -> MemoryMonad p a
-  writeM :: Proxy abi -> p a -> a -> MemoryMonad p ()
+  abi :: Proxy abi -> AbiLens p a
+  -- readM :: Proxy abi -> p a -> MemoryMonad p a
+  -- writeM :: Proxy abi -> p a -> a -> MemoryMonad p ()
 
 type SizeOfAbi abi = SizeOf (SizeOf' abi) (AlignOf' abi)
 
+derefOffset :: forall p abi s a. (Sized p abi a) => Offset p s a -> Proxy abi -> MonadicLens' (MemoryMonad p) (p s) a
+derefOffset o p = offset o . abi p
+
 -- derefOffset :: forall p abi s t a b. (Sized p abi a, Sized p abi b, Monad (MemoryMonad p)) => Offset p s a -> Proxy abi -> MonadicLens (MemoryMonad p) (p s) (p t) a b
 -- derefOffset o p = let
---   l :: Lens' (p a) (p b)
---   l = lens from_ to_
---   in l . (abi p)
+--   read_ :: p s -> (MemoryMonad p) (a, (p t, Offset p t b))
+--   read_ ptr = do
+--     val <- readM p (ptr `addOffset` o)
+--     return (val, (unsafeCastPointer ptr, unsafeCastOffset (Proxy @(p s, p a, p t, p b)) o))
+--   write_ :: (p t, Offset p t b) -> b -> (MemoryMonad p) (p t)
+--   write_ (ptr, off) d = writeM p (ptr `addOffset` off) d >> return ptr
+--   in monadicLens (ExistentialMonadicLens read_ write_)
 
-derefOffset :: forall p abi s t a b. (Sized p abi a, Sized p abi b, Monad (MemoryMonad p)) => Offset p s a -> Proxy abi -> MonadicLens (MemoryMonad p) (p s) (p t) a b
-derefOffset o p = let
-  read_ :: p s -> (MemoryMonad p) (a, (p t, Offset p t b))
-  read_ ptr = do
-    val <- readM p (ptr `addOffset` o)
-    return (val, (unsafeCastPointer ptr, unsafeCastOffset (Proxy @(p s, p a, p t, p b)) o))
-  write_ :: (p t, Offset p t b) -> b -> (MemoryMonad p) (p t)
-  write_ (ptr, off) d = writeM p (ptr `addOffset` off) d >> return ptr
-  in monadicLens (ExistentialMonadicLens read_ write_)
-
-derefOffset' :: forall p abi s a. (Sized p abi a, Monad (MemoryMonad p)) => Offset p s a -> Proxy abi -> MonadicLens' (MemoryMonad p) (p s) a
-derefOffset' = derefOffset
-
-deref :: forall p abi a b. (Sized p abi a, Sized p abi b, Monad (MemoryMonad p)) => Proxy abi -> MonadicLens (MemoryMonad p) (p a) (p b) a b
+deref :: forall p abi a. (Sized p abi a) => Proxy abi -> MonadicLens' (MemoryMonad p) (p a) a
 deref = derefOffset . offsetSelf $ Proxy @(p a)
-
-deref' :: forall p abi a. (Sized p abi a, Monad (MemoryMonad p)) => Proxy abi -> MonadicLens' (MemoryMonad p) (p a) a
-deref' = derefOffset' . offsetSelf $ Proxy @(p a)
 
 minimalStride :: (Integral s, s ~ a) => SizeOf s a -> s
 minimalStride SizeOf{sizeOf, alignOf} =
@@ -102,7 +101,7 @@ readBM
   -> (MemoryMonad p) (b Identity, p (b Identity))
 readBM p off ptr = let
   offsetToLens :: forall a. (Sized p abi a) => OffsetFor p (b Identity) a -> MLensFor (MemoryMonad p) (p (b Identity)) a
-  offsetToLens (getOffsetFor -> o) = MLensFor $ derefOffset' o p
+  offsetToLens (getOffsetFor -> o) = MLensFor $ derefOffset o p
   composeM :: MemoryMonad p a -> Compose (MemoryMonad p) Identity a
   composeM = Compose . fmap Identity
   readOffset :: MLensFor (MemoryMonad p) (p (b Identity)) a -> Compose (MemoryMonad p) Identity a
@@ -121,7 +120,7 @@ writeBM
   -> (MemoryMonad p) (p (b Identity))
 writeBM p off ptr d = let
   offsetToLens :: forall a. (Sized p abi a) => OffsetFor p (b Identity) a -> MLensFor (MemoryMonad p) (p (b Identity)) a
-  offsetToLens (getOffsetFor -> o) = MLensFor $ derefOffset' o p
+  offsetToLens (getOffsetFor -> o) = MLensFor $ derefOffset o p
   writeOffset :: (Identity `Product` MLensFor (MemoryMonad p) (p (b Identity))) a -> MemoryMonad p ()
   writeOffset (Pair (Identity d') (MLensFor l) ) = putM l d' ptr >> return ()
   in do

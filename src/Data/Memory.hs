@@ -13,6 +13,7 @@ module Data.Memory
     )
   , Offset
   , MemoryMonad
+  , offset'
   , offset
   , unsafeCastPtr
   , OffsetFor(OffsetFor, getOffsetFor)
@@ -23,8 +24,9 @@ where
 
 import           Control.Lens.Getter   (Getter, to)
 import           Control.Lens.Iso      (Iso, iso)
+import           Control.Lens.Lens     (Lens', lens)
 import           Data.Eq               (Eq)
-import           Data.Function         (($))
+import           Data.Function         (const, ($))
 import           Data.Functor.Identity (Identity)
 import           Data.Kind             (Type)
 import           Data.Ord              (Ordering, compare)
@@ -51,9 +53,16 @@ class Pointer p where
   unsafeCastOffset :: Proxy (p s, p a, p t, p b) -> Offset p s a -> Offset p t b
 
 type OffsetGetter p a b = Getter (p a) (p b)
+type OffsetLens p a b = Lens' (p a) (p b)
 
-offset :: (Pointer p) => Offset p a b -> OffsetGetter p a b
-offset o = to $ \p -> p `addOffset` o
+offset' :: (Pointer p) => Offset p a b -> OffsetGetter p a b
+offset' o = to $ \p -> p `addOffset` o
+
+offset :: (Pointer p) => Offset p a b -> OffsetLens p a b
+offset o = let
+  to_ = (`addOffset` o)
+  from_ = const
+  in lens to_ from_
 
 unsafeCastPtr :: (Pointer p) => Iso (p a) (p a) (p b) (p b)
 unsafeCastPtr = iso unsafeCastPointer unsafeCastPointer
