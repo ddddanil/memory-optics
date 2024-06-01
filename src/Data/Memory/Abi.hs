@@ -36,7 +36,8 @@ import           Data.Functor.Identity (Identity (Identity))
 import           Data.Functor.Product  (Product (Pair))
 import           Data.Memory           (MemoryMonad, Offset, OffsetB,
                                         OffsetFor (getOffsetFor),
-                                        Pointer (offsetSelf), offset)
+                                        Pointer (offsetSelf), getOffsetFor,
+                                        offset)
 import           Data.Proxy            (Proxy (Proxy))
 import           Data.Type.Equality    (type (~))
 import           GHC.Generics          (Generic)
