@@ -43,6 +43,7 @@ library
       Data.Memory.Abi.C
       Data.Memory.Abi.Native
       Data.Memory.Scalars
+      Data.Memory.Scalars.Lens
   other-modules:
       Data.Functor.Utils
   hs-source-dirs:

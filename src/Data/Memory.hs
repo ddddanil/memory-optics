@@ -1,7 +1,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Data.Memory
-  ( Pointer
+  ( bitsInByte
+  , Pointer
     ( offsetSelf
     , unsafeOffsetFromBytes
     , compareOffset
@@ -30,20 +31,22 @@ where
 import           Control.Lens.Getter   (Getter, to)
 import           Control.Lens.Iso      (Iso, iso)
 import           Control.Lens.Lens     (Lens', lens)
-import           Data.Bool             (Bool)
-import           Data.Eq               (Eq ((==)))
+import           Data.Eq               (Eq)
 import           Data.Function         (const, ($))
 import           Data.Functor.Identity (Identity)
 import           Data.Kind             (Type)
-import           Data.Ord              (Ord ((<)), Ordering (LT), compare)
-import           Data.Proxy            (Proxy (Proxy))
-import           Data.Type.Equality    (type (~))
+import           Data.Ord              (Ordering, compare)
+import           Data.Proxy            (Proxy)
 import           Foreign               (Int)
 import qualified Foreign.Ptr           as GHC
 import           GHC.IO                (IO)
 import           GHC.Num               ((+))
 import           GHC.Real              (Integral, fromIntegral)
 import           GHC.Show              (Show)
+import           TypeLevel.Number.Nat  (nat, natT)
+
+bitsInByte :: $(natT 8)
+bitsInByte = $(nat 8)
 
 class Pointer p where
   type Offset p a b

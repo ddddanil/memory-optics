@@ -10,7 +10,8 @@ module Control.Monad.RightModule
   ( RightModule(act) )
 where
 
-import           Control.Applicative    (Applicative (pure))
+import           Control.Applicative    (Applicative (pure),
+                                         WrappedMonad (WrapMonad))
 import           Control.Monad          (Monad, join, (=<<))
 import           Control.Monad.Monomial (Monomial (Monomial))
 import           Control.Monad.Morph    (MonadTrans (lift))
@@ -24,7 +25,10 @@ class RightModule m f where
 instance (Monad m) => RightModule m m where
     act = join
 
-instance (MonadTrans t, Monad m) => RightModule (m) (t m) where
+instance (Monad m) => RightModule m (WrappedMonad m) where
+    act = (WrapMonad =<<)
+
+instance (MonadTrans t, Monad m) => RightModule m (t m) where
   act = (lift =<<)
 
 instance (Monad m) => RightModule m (Monomial m a b) where
