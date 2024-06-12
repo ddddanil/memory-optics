@@ -1,1 +1,1 @@
-# memory-optics
+# memory-optics  [![Haskell Stack](https://github.com/ddddanil/memory-optics/actions/workflows/check-stack.yaml/badge.svg)](https://github.com/ddddanil/memory-optics/actions/workflows/check-stack.yaml) [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/ddddanil/memory-optics/badge)](https://api.securityscorecards.dev/projects/github.com/ddddanil/memory-optics)

@@ -1,0 +1,39 @@
+name: Static checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize]
+
+permissions: {}
+
+jobs:
+  hlint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        with:
+          persist-credentials: false
+
+      - name: Set up HLint
+        uses: haskell-actions/hlint-setup@0b0024319753ba0c8b2fa21b7018ed252aed8181 # v2.4.9
+
+      - name: Run HLint
+        uses: haskell-actions/hlint-run@96199a3357287063c67606b26d533f1acb4b6c4e # v2.4.9
+        with:
+          path: .
+          fail-on: warning
+
+  validate-cabal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        with:
+          persist-credentials: false
+
+      - name: Validate Cabal file
+        run: cabal check
